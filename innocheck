@@ -1,0 +1,37 @@
+#!/bin/bash
+
+filecount=0
+errorcount=0
+errorfiles=""
+
+[[ "$1" == "" ]] && set -- .
+
+function inno {
+  innoerror=false
+  ((filecount++))
+  innoextract --test --list-checksums "$1"
+  [[ "$?" != "0" ]] && innoerror=true
+  innoextract --test --no-gog-galaxy --list-checksums "$1"
+  [[ "$?" != "0" ]] && innoerror=true
+  if [[ "$innoerror" == true ]]; then
+    ((errorcount++))
+    errorfiles+="$1
+"
+  fi
+  echo
+}
+
+while [[ "$1" != "" ]]; do
+  [[ -d "$1" ]] && for exe in "$1"/*.exe; do [[ -f "$exe" ]] && inno "$exe"; done
+  [[ -f "$1" ]] && inno "$1"
+  shift
+done
+
+echo "$filecount file(), $errorcount errors"
+if [[ "$errorcount" -gt 0 ]]; then
+  echo Press RETURN to see error files
+  read
+  echo
+  echo "$errorfiles"
+fi
+exit "$errorcount"

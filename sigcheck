@@ -1,0 +1,89 @@
+#!/bin/bash
+
+# first block is GOG, then DigiCert
+
+serials="
+06F56DD38538018E9A31248796E640AB
+0B2CE86937CD32092D0C003EFDF5D988
+0CB6E45E4D9295AFD0DEA595E0156ACE
+0DB093590538192F52B39C94119A48CB
+05B5D9D6BB2960FBD330C5D6B9B7B7D2
+087DE552D352D9BAF0C2B6DF6AC4C64A
+
+0409181B5FD5BB66755343B56F955008
+03019A023AFF58B16BD6D5EAE617F066
+06FDF9039603ADEA000AEB3F27BBBA1B
+038B96F070D9E21E55A5426792E1C83A
+0FA8490615D700A0BE2176FDC5EC6DBD
+039FEDEDCB795B8DED320C8919F03689
+"
+
+subjects="
+/C=PL/L=Warsaw/O=GOG Sp. z o.o./CN=GOG Sp. z o.o.
+/C=CY/L=Larnaca/O=GOG Limited/CN=GOG Limited
+/C=CY/L=Nicosia/O=GOG Limited/CN=GOG Limited
+
+/C=US/O=DigiCert/CN=DigiCert Timestamp Responder
+/C=US/O=DigiCert Inc/OU=www.digicert.com/CN=DigiCert Assured ID Code Signing CA-1
+"
+
+issuers="
+/C=US/O=DigiCert Inc/OU=www.digicert.com/CN=DigiCert SHA2 Assured ID Code Signing CA
+/C=US/O=DigiCert Inc/OU=www.digicert.com/CN=DigiCert Assured ID Root CA
+/C=US/O=DigiCert Inc/OU=www.digicert.com/CN=DigiCert Assured ID CA-1
+"
+
+okstrings="
+ok
+Succeeded
+"
+
+errorstrings="
+MISMATCH!!!!
+MISMATCH!!!
+MISMATCH
+failed
+Failed
+"
+
+COLOR_KNOWN='02;32'
+COLOR_OK='01;32'
+COLOR_ERROR='01;91'
+
+filecount=0
+errorcount=0
+
+[[ "$1" == "" ]] && set -- .
+
+function sigcheck {
+  echo
+  echo "$1"
+  echo
+  osslsigncode verify "$1" | \
+    GREP_COLOR=$COLOR_OK \
+    grep --color=always -e "$okstrings" | \
+    GREP_COLOR=$COLOR_KNOWN \
+    grep --color=always -e "$serials $subjects $issuers" | \
+    GREP_COLOR=$COLOR_ERROR \
+    grep --color=always -e "$errorstrings"
+  [[ "${PIPESTATUS[0]}" != 0 ]] && ((errorcount++))
+  ((filecount++))
+}
+
+while [[ "$1" != "" ]]; do
+
+  if [[ -d "$1" ]]; then
+    for exe in "$1"/*.exe; do
+      [[ -f "$exe" ]] || continue
+      sigcheck "$exe";
+    done
+  fi
+
+  [[ -f "$1" ]] && [[ "$1" == *.exe ]] && sigcheck "$1"
+
+  shift
+done
+
+echo
+echo "$filecount file(s), $errorcount errors"
+exit "$errorcount"

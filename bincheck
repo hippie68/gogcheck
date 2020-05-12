@@ -1,0 +1,98 @@
+#!/bin/bash
+
+# User settings
+
+debug=false
+GREEN='\e[92m'
+RED='\e[91m'
+GRAY='\e[37m'
+RESET='\e[39m'
+
+# Script starts below
+
+filecount=0
+errorcount=0 # number of checksum errors
+
+debugmessage() { [[ $debug == true ]] && echo -e "${GRAY}$1${RESET}"; }
+
+# this function accepts .exe files
+hashcheck() {
+  # skip should the .exe be a directory (for whatever reason)
+  [[ -d "$1" ]] && { debugmessage "Skipped directory '$1'"; return; }
+  # skip when no .bin files exist
+  ls "${1%.exe}"-*.bin &> /dev/null
+  if [[ "$?" != 0 ]]; then
+    debugmessage "No BIN files found for '$1'"
+    return
+  fi
+
+  echo "'$1'"
+  checksums="" # list of known checksums the current .exe provides
+  crcstring=$(strings "$1" | grep -i '#GOGCRCSTRING') # extract GOGCRCSTRING from .exe
+  [[ $crcstring == "" ]] && { debugmessage "No checksums found in '$1'"; return; }
+  crcstring=${crcstring%#GOGCRCSTRING*} # remove the string name, leaving numbers
+  debugmessage "Raw GOGCRCSTRING: $crcstring"
+  multiplier=${crcstring: -2} # the 2-digit number before '#GOGCRCSTRING'
+  debugmessage "Number of MD5 hashes: $multiplier"
+  crcstring=${crcstring::-2} # remove the 2-digit number
+  md5hashes=${crcstring:(( - 10#$multiplier * 32 ))} # omit characters not part of the hashes
+  md5hashes=${md5hashes,,} # set md5 hashes to lowercase
+  debugmessage "Raw MD5 hashes: $md5hashes"
+
+  for i in $(seq -w 01 "$multiplier"); do
+    checksum=${md5hashes:(( 32 * ((10#$i - 1)) )):32}
+    [[ "$checksum" == "" ]] && checksum="[empty]                         "
+    echo "$checksum"
+    checksums+=" $checksum" # add current checksum to known checksums
+  done
+
+  for bin in "${1%.exe}"-*.bin; do
+    [[ -f $bin ]] || { debugmessage "BIN file(s) not found: '$bin'"; continue; }
+    ((filecount++))
+    filename=${bin##*/}
+    result=$(md5sum "$bin")
+    checksum=${result%  *}
+    if [[ "$checksums" == *"$checksum"* ]] # is checksum known?
+    then echo -e "${GREEN}$checksum OK${RESET} $filename"
+    else
+      echo -e "${RED}$checksum CHECKSUM ERROR${RESET} $filename"
+      ((errorcount++))
+    fi
+  done
+  echo
+}
+
+# use current directory if no arguments given
+[[ "$1" == "" ]] && set -- .
+
+while [[ "$1" != "" ]]; do
+
+  # for directory arguments, hashcheck all .exe files inside the directory
+  if [[ -d "$1" ]]; then
+
+    # skip directories without .exe files
+    ls "$1"/*.exe &> /dev/null
+    if [[ "$?" != 0 ]]; then
+      debugmessage "Skipped directory without EXE files: '$1'"
+      shift
+      continue
+    fi
+
+    for exe in "$1"/*.exe; do
+      hashcheck "$exe"
+    done
+
+  # for other arguments, skip those that are not .exe files
+  elif [[ -f "$1" ]]; then
+    if [[ "${1: -4}" == ".exe" ]]; then hashcheck "$1"
+    else debugmessage "Skipped non-EXE file: '$1'"
+    fi
+  fi
+
+  shift
+done
+
+echo -n "$filecount bin file(s), "
+[[ "$errorcount" -gt 0 ]] && echo -en "${RED}"
+echo "$errorcount checksum errors"
+exit "$errorcount"
