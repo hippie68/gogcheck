@@ -118,5 +118,5 @@ if [[ "$errorcount" -gt 0 ]]; then
 else
   echo -en "${GREEN}"
 fi
-echo -n "$errorcount checksum error(s)"
+echo "$errorcount checksum error(s)"
 exit "$errorcount"
