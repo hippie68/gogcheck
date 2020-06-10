@@ -27,7 +27,7 @@ while [[ "$1" != "" ]]; do
   shift
 done
 
-echo "$filecount file(), $errorcount errors"
+echo "$filecount exe file(s), $errorcount errors"
 if [[ "$errorcount" -gt 0 ]]; then
   echo Press RETURN to see error files
   read

@@ -1,6 +1,7 @@
 #!/bin/bash
 
-# first block is GOG, then DigiCert
+# "serials", "subjects", and "issuers" are optional lists of known strings.
+# First block is GOG, then DigiCert each.
 
 serials="
 06F56DD38538018E9A31248796E640AB
@@ -33,6 +34,8 @@ issuers="
 /C=US/O=DigiCert Inc/OU=www.digicert.com/CN=DigiCert Assured ID CA-1
 "
 
+# "okstrings" and "errorstings" are used to highlight osslsigncode's results
+
 okstrings="
 ok
 Succeeded
@@ -50,14 +53,16 @@ COLOR_KNOWN='02;32'
 COLOR_OK='01;32'
 COLOR_ERROR='01;91'
 
+PURPLE='\e[95m'
+RESET='\e[39m'
+
 filecount=0
 errorcount=0
 
 [[ "$1" == "" ]] && set -- .
 
 function sigcheck {
-  echo
-  echo "$1"
+  echo -e "Verifying ${PURPLE}$1${RESET}"
   echo
   osslsigncode verify "$1" | \
     GREP_COLOR=$COLOR_OK \
@@ -85,5 +90,5 @@ while [[ "$1" != "" ]]; do
 done
 
 echo
-echo "$filecount file(s), $errorcount errors"
+echo "$filecount file(s), $errorcount error(s)"
 exit "$errorcount"
