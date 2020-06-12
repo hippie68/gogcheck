@@ -53,8 +53,10 @@ COLOR_KNOWN='02;32'
 COLOR_OK='01;32'
 COLOR_ERROR='01;91'
 
-PURPLE='\e[95m'
-RESET='\e[39m'
+red='\e[91m'
+green='\e[92m'
+purple='\e[95m'
+reset='\e[39m'
 
 filecount=0
 errorcount=0
@@ -62,8 +64,7 @@ errorcount=0
 [[ "$1" == "" ]] && set -- .
 
 function sigcheck {
-  echo -e "Verifying ${PURPLE}$1${RESET}"
-  echo
+  echo -e "Verifying ${purple}$1${reset}"
   osslsigncode verify "$1" | \
     GREP_COLOR=$COLOR_OK \
     grep --color=always -e "$okstrings" | \
@@ -73,6 +74,7 @@ function sigcheck {
     grep --color=always -e "$errorstrings"
   [[ "${PIPESTATUS[0]}" != 0 ]] && ((errorcount++))
   ((filecount++))
+  echo
 }
 
 while [[ "$1" != "" ]]; do
@@ -89,6 +91,7 @@ while [[ "$1" != "" ]]; do
   shift
 done
 
-echo
-echo "$filecount file(s), $errorcount error(s)"
+echo -n "$filecount file(s), "
+if [[ $errorcount -gt 0 ]]; then echo -en "${red}"; else echo -en "${green}"; fi
+echo "$errorcount error(s)"
 exit "$errorcount"

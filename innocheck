@@ -3,22 +3,24 @@
 filecount=0
 errorcount=0
 errorfiles=""
+red='\e[91m'
+green='\e[92m'
+purple='\e[95m'
+reset='\e[39m'
 
 [[ "$1" == "" ]] && set -- .
 
 function inno {
   innoerror=false
   ((filecount++))
-  innoextract --test --list-checksums "$1"
-  [[ "$?" != "0" ]] && innoerror=true
-  innoextract --test --no-gog-galaxy --list-checksums "$1"
-  [[ "$?" != "0" ]] && innoerror=true
-  if [[ "$innoerror" == true ]]; then
+  echo -e "Testing ${purple}$1${reset}"
+  innoextract --gog --test --silent --progress=1 "$1"
+  if [[ "$?" != "0" ]]; then
     ((errorcount++))
     errorfiles+="$1
 "
+    echo -e "  ${red}Encountered errors${reset}."
   fi
-  echo
 }
 
 while [[ "$1" != "" ]]; do
@@ -27,11 +29,11 @@ while [[ "$1" != "" ]]; do
   shift
 done
 
-echo "$filecount exe file(s), $errorcount errors"
-if [[ "$errorcount" -gt 0 ]]; then
-  echo Press RETURN to see error files
-  read
-  echo
-  echo "$errorfiles"
+echo -n "$filecount exe file(s), "
+if [[ $errorcount == 0 ]]; then echo -en "${green}"; else echo -en "${red}"; fi
+echo -e "$errorcount error(s)${reset}"
+if [[ $errorcount -gt 0 ]]; then
+  echo "Listing files with errors:"
+  echo -e "${red}$errorfiles${reset}"
 fi
 exit "$errorcount"
