@@ -11,9 +11,9 @@ Required packages (Debian/Ubuntu):
 - bincheck: binutils
 - innocheck: innoextract
 
-For Windows users: The scripts also work with the Windows Subsystem for Linux (WSL) on Windows 10
+For Windows users: The scripts also work with the Windows Subsystem for Linux (WSL) on Windows 10  
 -> https://docs.microsoft.com/en-us/windows/wsl/
 
-You may need to download or compile the latest version of innoextract if your distro's package is outdated.
+You may need to download or compile the latest version of innoextract if your distro's package is outdated.  
 -> https://constexpr.org/innoextract/#download
 Some GOG games' .bin files are RAR archives. Their content's checksums are not known to the .exe file, so in such a case the script skips testing to save time.
