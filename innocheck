@@ -2,48 +2,49 @@
 
 # User variables
 
-silent=true
+verbose=true
 
-color_error='\e[91m'
-color_success='\e[92m'
+color_error='\e[91m\e[1m'
+color_success='\e[92m\e[1m'
 color_file='\e[95m'
-color_reset='\e[39m'
+color_reset='\e[39m\e[0m'
 
 # Script starts below
 
 filecount=0
 errorcount=0
 errorfiles=""
-if [[ $silent == true ]]; then
-  silent="--silent"
+if [[ $verbose == true ]]; then
+  verbose="--list-checksums"
 else
-  silent=""
+  verbose=""
 fi
 
-[[ "$1" == "" ]] && set -- . # if no arguments given, use current directory
+[[ $1 == "" ]] && set -- . # if no arguments given, use current directory
 
 inno() {
   innoerror=false
   ((filecount++))
-  echo -e "Testing ${color_file}$1${color_reset}"
+  echo -e "Extract-testing ${color_file}$1${color_reset}"
+  innoextract --test --silent $verbose --progress=1 "$1"
+  if [[ $? != 0 ]]; then innoerror=true; fi
 
   # show info why RAR archives are skipped
   if [[ -f "${1%.exe}"-1.bin ]]; then
     if [[ $(file "${1%.exe}"-1.bin) == *RAR* ]]; then
-      echo "The bin file(s) for this particular game are in RAR format and not part of Inno Setup. The content's checksums are not known. You can ignore the following innoextract warnings."
+      echo "SCRIPT MESSAGE: The bin file(s) for this particular game are in RAR format and not part of Inno Setup. The content's checksums are not known, so testing bin files has been skipped on purpose. You can ignore innoextract messages in this regard."
     fi
   fi
 
-  innoextract --test $silent --progress=1 "$1"
-  if [[ "$?" != "0" ]]; then
+  if [[ $innoerror == true ]]; then
     ((errorcount++))
     errorfiles+="$1
 "
-    echo -e "  ${color_error}Encountered errors${color_reset}."
+    echo -e "${color_error}Encountered errors!${color_reset}"
   fi
 }
 
-while [[ "$1" != "" ]]; do
+while [[ $1 != "" ]]; do
   [[ -d "$1" ]] && for exe in "$1"/*.exe; do [[ -f "$exe" ]] && inno "$exe"; done
   [[ -f "$1" ]] && inno "$1"
   shift
@@ -51,7 +52,7 @@ done
 
 echo
 echo -n "$filecount exe file(s), "
-if [[ $errorcount == 0 ]]; then 
+if [[ $errorcount == 0 ]]; then
   echo -en "${color_success}"
 else
   echo -en "${color_error}"

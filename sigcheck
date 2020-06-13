@@ -41,10 +41,10 @@ COLOR_KNOWN='02;32'
 COLOR_OK='01;32'
 COLOR_ERROR='01;91'
 
-color_red='\e[91m'
-color_green='\e[92m'
+color_error='\e[91m\e[1m'
+color_success='\e[92m\e[1m'
 color_file='\e[95m'
-color_reset='\e[39m'
+color_reset='\e[39m\e[0m'
 
 # Script starts below
 
@@ -65,8 +65,9 @@ Failed
 
 filecount=0
 errorcount=0
+errorfiles=""
 
-[[ "$1" == "" ]] && set -- . # if no arguments given, use current directory
+[[ $1 == "" ]] && set -- . # if no arguments given, use current directory
 
 sigcheck() {
   echo -e "Verifying ${color_file}$1${color_reset}"
@@ -77,12 +78,16 @@ sigcheck() {
     grep --color=always -e "$serials $subjects $issuers" | \
     GREP_COLOR=$COLOR_ERROR \
     grep --color=always -e "$errorstrings"
-  [[ "${PIPESTATUS[0]}" != 0 ]] && ((errorcount++))
+  if [[ ${PIPESTATUS[0]} != 0 ]]; then
+    ((errorcount++))
+    errorfiles+="$1
+"
+  fi
   ((filecount++))
   echo
 }
 
-while [[ "$1" != "" ]]; do
+while [[ $1 != "" ]]; do
 
   if [[ -d "$1" ]]; then
     for exe in "$1"/*.exe; do
@@ -91,16 +96,16 @@ while [[ "$1" != "" ]]; do
     done
   fi
 
-  [[ -f "$1" ]] && [[ "$1" == *.exe ]] && sigcheck "$1"
+  [[ -f "$1" ]] && [[ $1 == *.exe ]] && sigcheck "$1"
 
   shift
 done
 
 echo -n "$filecount file(s), "
 if [[ $errorcount == 0 ]]; then
-  echo -en "${color_green}"
+  echo -en "${color_success}"
 else
-  echo -en "${color_red}"
+  echo -en "${color_error}"
 fi
 echo -e "$errorcount error(s)${color_reset}"
 if [[ $errorcount -gt 0 ]]; then

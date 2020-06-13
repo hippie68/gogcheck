@@ -4,11 +4,11 @@
 
 debug=false
 
-color_success='\e[92m'
-color_error='\e[91m'
+color_success='\e[92m\e[1m'
+color_error='\e[91m\e[1m'
 color_file='\e[95m'
 color_debug='\e[90m'
-color_reset='\e[39m'
+color_reset='\e[39m\e[0m'
 
 # Script starts below
 
@@ -73,9 +73,9 @@ hashcheck() {
 }
 
 # use current directory if no arguments given
-[[ "$1" == "" ]] && set -- .
+[[ $1 == "" ]] && set -- .
 
-while [[ "$1" != "" ]]; do
+while [[ $1 != "" ]]; do
 
   # for directory arguments, hashcheck all .exe files inside the directory
   if [[ -d "$1" ]]; then
