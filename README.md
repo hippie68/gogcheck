@@ -1,5 +1,5 @@
 Bash scripts for the purpose of scanning your GOG offline installer collection for valid digital signatures and correct checksums, making sure your downloads have not been modified by someone else.
-The scripts accept multiple files and folders as arguments. No arguments: check the current folder.
+The scripts accept multiple .exe files and folders as arguments. No arguments: check the current folder.
 
 To make sure all files are original, use the scripts in the following order:
 1. sigcheck: checks .exe files for valid digital signatures
@@ -10,6 +10,9 @@ Required packages (Debian/Ubuntu):
 - sigcheck: osslsigncode
 - bincheck: binutils
 - innocheck: innoextract
+
+For Windows users: The scripts also work with the Windows Subsystem for Linux (WSL) on Windows 10
+-> https://docs.microsoft.com/en-us/windows/wsl/
 
 You may need to download or compile the latest version of innoextract if your distro's package is outdated.
 -> https://constexpr.org/innoextract/#download
