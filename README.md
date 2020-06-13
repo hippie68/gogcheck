@@ -1,14 +1,16 @@
-Bash scripts to scan your whole GOG offline installer collection or single files for valid digital signatures and correct checksums. Make sure your downloads have not been modified by someone else.
+Bash scripts for the purpose of scanning your GOG offline installer collection for valid digital signatures and correct checksums, making sure your downloads have not been modified by someone else.
 The scripts accept multiple files and folders as arguments. No arguments: check the current folder.
 
 To make sure all files are original, use the scripts in the following order:
 1. sigcheck: checks .exe files for valid digital signatures
-2. bincheck: checks if .bin files have valid checksums (only means something if sigcheck succeeds)
-3. innocheck: test-extracts game files and verifies their checksums
+2. bincheck: checks if .bin files' checksums (which the .exe contains) are valid (only means something if sigcheck succeeds)
+3. innocheck: test-extracts game files from both .exe and .bin files and verifies their checksums (which the .exe contains)
 
 Required packages (Debian/Ubuntu):
 - sigcheck: osslsigncode
 - bincheck: binutils
 - innocheck: innoextract
 
-You may need to compile the latest version of innoextract yourself if your distro's package is outdated. Innoextract 1.8 or later is required to extract all current GOG offline installers. -> https://github.com/dscharrer/innoextract
+You may need to download or compile the latest version of innoextract if your distro's package is outdated.
+-> https://constexpr.org/innoextract/#download
+Some GOG games' .bin files are RAR archives. Their content's checksums are not known to the .exe file, so in such a case the script skips testing to save time.
