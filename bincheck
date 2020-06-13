@@ -13,7 +13,7 @@ color_reset='\e[39m'
 # Script starts below
 
 filecount=0
-errorcount=0 # global number of checksum errors
+errorcount=0
 errorfiles=""
 
 debugmessage() { [[ $debug == true ]] && echo -e "${color_debug}$1${color_reset}"; }
@@ -103,11 +103,14 @@ while [[ "$1" != "" ]]; do
 done
 
 echo -n "$filecount bin file(s), "
-if [[ $errorcount -gt 0 ]]; then
-  echo -en "${color_error}"
-else
+if [[ $errorcount == 0 ]]; then
   echo -en "${color_success}"
+else
+  echo -en "${color_error}"
 fi
-echo "$errorcount checksum error(s)"
-if [[ $errorcount -gt 0 ]]; then echo "$errorfiles"; fi
+echo -e "$errorcount checksum error(s)${color_reset}"
+if [[ $errorcount -gt 0 ]]; then
+  echo "Listing files that produced errors:"
+  echo -e "${color_error}$errorfiles${color_reset}"
+fi
 exit "$errorcount"

@@ -1,25 +1,45 @@
 #!/bin/bash
 
+# User variables
+
+silent=true
+
+color_error='\e[91m'
+color_success='\e[92m'
+color_file='\e[95m'
+color_reset='\e[39m'
+
+# Script starts below
+
 filecount=0
 errorcount=0
 errorfiles=""
-red='\e[91m'
-green='\e[92m'
-purple='\e[95m'
-reset='\e[39m'
+if [[ $silent == true ]]; then
+  silent="--silent"
+else
+  silent=""
+fi
 
-[[ "$1" == "" ]] && set -- .
+[[ "$1" == "" ]] && set -- . # if no arguments given, use current directory
 
-function inno {
+inno() {
   innoerror=false
   ((filecount++))
-  echo -e "Testing ${purple}$1${reset}"
-  innoextract --gog --test --silent --progress=1 "$1"
+  echo -e "Testing ${color_file}$1${color_reset}"
+
+  # show info why RAR archives are skipped
+  if [[ -f "${1%.exe}"-1.bin ]]; then
+    if [[ $(file "${1%.exe}"-1.bin) == *RAR* ]]; then
+      echo "The bin file(s) for this particular game are in RAR format and not part of Inno Setup. The content's checksums are not known. You can ignore the following innoextract warnings."
+    fi
+  fi
+
+  innoextract --test $silent --progress=1 "$1"
   if [[ "$?" != "0" ]]; then
     ((errorcount++))
     errorfiles+="$1
 "
-    echo -e "  ${red}Encountered errors${reset}."
+    echo -e "  ${color_error}Encountered errors${color_reset}."
   fi
 }
 
@@ -29,11 +49,16 @@ while [[ "$1" != "" ]]; do
   shift
 done
 
+echo
 echo -n "$filecount exe file(s), "
-if [[ $errorcount == 0 ]]; then echo -en "${green}"; else echo -en "${red}"; fi
-echo -e "$errorcount error(s)${reset}"
+if [[ $errorcount == 0 ]]; then 
+  echo -en "${color_success}"
+else
+  echo -en "${color_error}"
+fi
+echo -e "$errorcount error(s)${color_reset}"
 if [[ $errorcount -gt 0 ]]; then
-  echo "Listing files with errors:"
-  echo -e "${red}$errorfiles${reset}"
+  echo "Listing files that produced errors:"
+  echo -e "${color_error}$errorfiles${color_reset}"
 fi
 exit "$errorcount"
