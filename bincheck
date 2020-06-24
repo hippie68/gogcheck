@@ -110,7 +110,8 @@ else
 fi
 echo -e "$errorcount checksum error(s)${color_reset}"
 if [[ $errorcount -gt 0 ]]; then
-  echo "Listing files that produced errors:"
+  echo
+  echo "Files that produced errors:"
   echo -e "${color_error}$errorfiles${color_reset}"
 fi
 exit "$errorcount"

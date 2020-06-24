@@ -70,7 +70,7 @@ errorfiles=""
 [[ $1 == "" ]] && set -- . # if no arguments given, use current directory
 
 sigcheck() {
-  echo -e "Verifying ${color_file}$1${color_reset}"
+  echo -e "Verifying ${color_file}$1${color_reset} ..."
   osslsigncode verify "$1" | \
     GREP_COLOR=$COLOR_OK \
     grep --color=always -e "$okstrings" | \
@@ -109,7 +109,8 @@ else
 fi
 echo -e "$errorcount error(s)${color_reset}"
 if [[ $errorcount -gt 0 ]]; then
-  echo "Listing files that produced errors:"
+  echo
+  echo "Files that produced errors:"
   echo -e "${color_error}$errorfiles${color_reset}"
 fi
 exit "$errorcount"
