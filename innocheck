@@ -12,6 +12,8 @@ color_reset='\e[39m\e[0m'
 # Script starts below
 
 filecount=0
+rarcount=0
+rarfiles=""
 errorcount=0
 errorfiles=""
 if [[ $verbose == true ]]; then
@@ -32,7 +34,10 @@ inno() {
   # show info why RAR archives are skipped
   if [[ -f "${1%.exe}"-1.bin ]]; then
     if [[ $(file "${1%.exe}"-1.bin) == *RAR* ]]; then
-      echo "SCRIPT MESSAGE: The bin file(s) for this particular game are in RAR format and not part of Inno Setup. The content's checksums are not known, so testing the bin file(s) has been skipped on purpose. You can ignore innoextract messages in this regard."
+      echo "SCRIPT MESSAGE: The bin file(s) for this particular game are in RAR format, so they are not part of Inno Setup and have been skipped due to missing checksums."
+      ((rarcount++))
+      rarfiles+="$1
+"
     fi
   fi
 
@@ -62,5 +67,10 @@ if [[ $errorcount -gt 0 ]]; then
   echo
   echo "Files that produced errors:"
   echo -e "${color_error}$errorfiles${color_reset}"
+fi
+if [[ $rarcount -gt 0 ]]; then
+  echo
+  echo "Files with skipped RAR bins:"
+  echo "$rarfiles"
 fi
 exit "$errorcount"
