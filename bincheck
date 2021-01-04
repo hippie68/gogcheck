@@ -31,7 +31,7 @@ hashcheck() {
 
   echo -e "Looking into ${color_file}$1${color_reset} ..."
   checksums="" # list of known checksums the current .exe provides
-  crcstring=$(strings "$1" | grep -i '#GOGCRCSTRING') # extract GOGCRCSTRING from .exe
+  time crcstring=$(tac "$1" | strings | grep -m 1 -i '#GOGCRCSTRING') # extract GOGCRCSTRING from .exe
   [[ $crcstring == "" ]] && { debugmessage "No checksums found in '$1'"; return; }
   crcstring=${crcstring%#GOGCRCSTRING*} # remove the string name, leaving numbers
   debugmessage "Raw GOGCRCSTRING: $crcstring"
