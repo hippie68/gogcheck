@@ -6,6 +6,8 @@ To make sure all files are original, use the scripts in the following order:
 2. bincheck: checks if .bin files' checksums (which the .exe contains) are valid (only means something if sigcheck succeeds)
 3. innocheck: test-extracts game files from both .exe and .bin files and verifies their checksums (which the .exe contains)
 
+The script gogcheck tries to combine all 3 checks in one script.
+
 Required packages (Debian/Ubuntu):
 - sigcheck: osslsigncode
 - bincheck: binutils
