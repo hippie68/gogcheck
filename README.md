@@ -19,6 +19,7 @@ For Windows users: The scripts also work with the Windows Subsystem for Linux (W
 You may need to download or compile the latest version of innoextract if your distro's package is outdated.  
 -> https://constexpr.org/innoextract/#download  
 Some GOG games' .bin files are RAR archives. Their content's checksums are not known to the .exe file, so in such cases the innocheck script skips testing to save time.
+As innoextract in general does take a long time to extract games, it is turned off by default unless you switch it on via command line option.
 
 Q&A:
 ----
