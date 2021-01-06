@@ -17,7 +17,6 @@
 shopt -s nocasematch nocaseglob
 
 # User variables; true means enabled
-
 debug=false # Toggles appearing of debug messages
 color=true
 
@@ -27,41 +26,47 @@ color=true
 # It is not a complete collection, and future game releases might come with new strings.
 # Use this section to include additional strings seen in your known-legit files.
 
-serials="\
-06F56DD38538018E9A31248796E640AB|\
-0B2CE86937CD32092D0C003EFDF5D988|\
-0CB6E45E4D9295AFD0DEA595E0156ACE|\
-0DB093590538192F52B39C94119A48CB|\
-05B5D9D6BB2960FBD330C5D6B9B7B7D2|\
-087DE552D352D9BAF0C2B6DF6AC4C64A|\
-\
-0409181B5FD5BB66755343B56F955008|\
-03019A023AFF58B16BD6D5EAE617F066|\
-06FDF9039603ADEA000AEB3F27BBBA1B|\
-038B96F070D9E21E55A5426792E1C83A|\
-0FA8490615D700A0BE2176FDC5EC6DBD|\
-039FEDEDCB795B8DED320C8919F03689"
+serials="
+06F56DD38538018E9A31248796E640AB
+0B2CE86937CD32092D0C003EFDF5D988
+0CB6E45E4D9295AFD0DEA595E0156ACE
+0DB093590538192F52B39C94119A48CB
+05B5D9D6BB2960FBD330C5D6B9B7B7D2
+087DE552D352D9BAF0C2B6DF6AC4C64A
 
-subjects="\
-/C=PL/L=Warsaw/O=GOG Sp. z o.o./CN=GOG Sp. z o.o.|\
-/C=CY/L=Larnaca/O=GOG Limited/CN=GOG Limited|\
-/C=CY/L=Nicosia/O=GOG Limited/CN=GOG Limited|\
-\
-/C=US/O=DigiCert/CN=DigiCert Timestamp Responder|\
-/C=US/O=DigiCert Inc/OU=www.digicert.com/CN=DigiCert Assured ID Code Signing CA-1"
+0409181B5FD5BB66755343B56F955008
+03019A023AFF58B16BD6D5EAE617F066
+06FDF9039603ADEA000AEB3F27BBBA1B
+038B96F070D9E21E55A5426792E1C83A
+0FA8490615D700A0BE2176FDC5EC6DBD
+039FEDEDCB795B8DED320C8919F03689
+"
 
-issuers="\
-/C=US/O=DigiCert Inc/OU=www.digicert.com/CN=DigiCert SHA2 Assured ID Code Signing CA|\
-/C=US/O=DigiCert Inc/OU=www.digicert.com/CN=DigiCert Assured ID Root CA|\
-/C=US/O=DigiCert Inc/OU=www.digicert.com/CN=DigiCert Assured ID CA-1"
+subjects="
+/C=PL/L=Warsaw/O=GOG Sp. z o.o./CN=GOG Sp. z o.o.
+/C=CY/L=Larnaca/O=GOG Limited/CN=GOG Limited
+/C=CY/L=Nicosia/O=GOG Limited/CN=GOG Limited
+
+/C=US/O=DigiCert/CN=DigiCert Timestamp Responder
+/C=US/O=DigiCert Inc/OU=www.digicert.com/CN=DigiCert Assured ID Code Signing CA-1
+"
+
+issuers="
+/C=US/O=DigiCert Inc/OU=www.digicert.com/CN=DigiCert SHA2 Assured ID Code Signing CA
+/C=US/O=DigiCert Inc/OU=www.digicert.com/CN=DigiCert Assured ID Root CA
+/C=US/O=DigiCert Inc/OU=www.digicert.com/CN=DigiCert Assured ID CA-1
+"
 
 if [[ $color == "true" ]]; then
-  color_error='\033[1;91m'
   color_success='\033[1;92m'
-  color_known='\033[2;32m'
-  color_file='\033[95m'
+  color_error='\033[91m'
+  color_known='\033[32m'
+  color_file='\033[1;95m'
   color_reset='\033[0;39m'
   color_debug='\033[90m'
+  grep_color_success=${color_success:5:((${#color_success}-6))}
+  grep_color_error=${color_error:5:((${#color_error}-6))}
+  grep_color_known=${color_known:5:((${#color_known}-6))}
 fi
 
 # Script starts below
@@ -75,6 +80,21 @@ rarfiles=""
 errorcount=0 # Global count of file checks or unexpected
 errorfiles=""
 checkcount=0 # Each exe file gets a unique number - used for tracking errors faster
+
+# Escapes all regexp metacharacters in user strings for use with grep or awk
+prepare_user_strings() {
+  IFS=$'\n'
+  for string in $1; do
+    for char in \[ \] \( \) \. \^ \$ \? \* \+ \|; do
+      string=${string//"$char"/"\\$char"}
+    done
+    result+="$string|"
+  done
+  echo "${result%|}"
+}
+serials=$(prepare_user_strings "$serials")
+subjects=$(prepare_user_strings "$subjects")
+issuers=$(prepare_user_strings "$issuers")
 
 usage() {
   echo "Usage: ${0//*\/} [options] [file(s)/folder(s)]"
@@ -121,7 +141,7 @@ if [[ $check_signatures$check_binaries$check_innosetup == "" ]]; then
   check_signatures=1 check_binaries=1
 fi
 
-# Disable features if required commands not found
+# Find out if required and optional commands are available
 [[ $check_signatures == 1 ]] &&  ! hash osslsigncode &> /dev/null && {
   echo "osslsigncode binary not found! Which is required to verify exe signatures."
   exit 1
@@ -136,6 +156,11 @@ fi
   echo "Download the latest version from https://constexpr.org/innoextract/"
   exit 1
 }
+if ! hash sed &> /dev/null; then
+  echo "sed binary not found! Which is optionally required for further output formatting.";
+else
+  sedfound=true
+fi
 
 debugmessage() { [[ $debug == true ]] && echo -e "${color_debug}DEBUG MESSAGE: $1${color_reset}"; }
 
@@ -166,12 +191,11 @@ sigcheck() {
   returncode=$?
   # sed removes whitespace and empty lines to save space, and it removes the misleading
   # "Succeeded" message that osslsigncode creates even when there's an (perceived) error.
-  # It also indents lines. awk colorizes the output.
   echo "$result" \
-    | sed -e 's/^\s\+//' -e '/^$/d' -e '/^Succeeded$/d' -e 's/^/  /' \
-    | awk '{ gsub("'"$okstrings"'", "'"$color_success"'&'"$color_reset"'");
-             gsub("'"$errorstrings"'", "'"$color_error"'&'"$color_reset"'");
-             gsub("'"$serials|$subjects|$issuers"'", "'"$color_known"'&'"$color_reset"'"); print }'
+     | GREP_COLOR=$grep_color_known grep --color=always -E "$serials|$subjects|$issuers|$" \
+     | GREP_COLOR=$grep_color_error grep --color=always -E "$errorstrings|$" \
+     | GREP_COLOR=$grep_color_success grep --color=always -E "$okstrings|$" \
+     | if [[ $sedfound == true ]]; then sed -e 's/^\s\+//' -e '/^$/d' -e '/^Succeeded$/d'; else cat; fi
   if [[ $returncode != 0 || $(echo "$result" | grep -o 'No signature found.') != '' ]]; then
     error "$1 (digital signature)"
   fi
@@ -182,13 +206,13 @@ bincheck() {
   crcstring=$(tac "$1" | strings | grep -m 1 -i '#GOGCRCSTRING')
   debugmessage "  Raw GOGCRCSTRING: $crcstring"
   if [[ $crcstring == "" ]]; then
-    echo -e "  ${color_error}No bin file checksums found inside the exe file.${color_reset}"
+    echo -e "${color_error}No bin file checksums found inside the exe file.${color_reset}"
     if compgen -G "${1%.exe}-*.bin" > /dev/null; then
-      echo "  However, bin file(s) exist on the file system:"
+      echo "However, bin file(s) exist on the file system:"
       for i in ${1%.exe}-*.bin; do
-        echo "    $i"
+        echo "  $i"
       done
-      echo -e "  ${color_error}Without checksums, cannot verify the bin file(s)!${color_reset}"
+      echo -e "${color_error}Without checksums, cannot verify the bin file(s)!${color_reset}"
       error "$1 (bin checksums missing)"
     fi
     return
@@ -196,20 +220,20 @@ bincheck() {
   crcstring=${crcstring%#GOGCRCSTRING*} # Remove the string name, leaving numbers
   multiplier=${crcstring: -2} # The 2-digit number before '#GOGCRCSTRING'
   if [[ $multiplier == "00" ]]; then
-    echo "  Exe claims to have no bin files."
+    echo "Exe file claims not to have bin files."
     return
   fi
   crcstring=${crcstring::-2} # Remove the 2-digit number
   md5hashes=${crcstring:(( - 10#$multiplier * 32 ))} # Omit characters not part of the hashes
   md5hashes=${md5hashes,,} # Set md5 hashes to lowercase
-  debugmessage "  Raw MD5 hashes: $md5hashes"
-  echo -n "  Found $((multiplier)) checksum"
+  debugmessage "Raw MD5 hashes: $md5hashes"
+  echo -n "Found $((multiplier)) checksum"
   if [[ $multiplier == "01" ]]; then echo ":"; else echo "s:"; fi
 
   for i in $(seq -w 01 "$multiplier"); do
     checksum=${md5hashes:(( 32 * ((10#$i - 1)) )):32}
     [[ $checksum == "" ]] && checksum="[empty]                         "
-    echo "    $checksum"
+    echo "  $checksum"
     checksums+="$checksum " # Add current checksum to known checksums
   done
 
@@ -217,18 +241,18 @@ bincheck() {
   for bin in "${1%.exe}"-*.bin; do
     ((bincount++))
     filename=${bin##*/}
-    echo "  Verifying $filename"
+    echo "Verifying $filename"
     result=$(md5sum "$bin")
     checksum=${result%  *}
     if [[ $checksums == *"$checksum"* ]]; then
-      echo -e "    $checksum ${color_success}OK${color_reset}"
+      echo -e "  $checksum ${color_success}OK${color_reset}"
     else
-      echo -e "    $checksum ${color_error}ERROR${color_reset}"
+      echo -e "  $checksum ${color_error}ERROR${color_reset}"
       error "$filename (wrong checksum)"
     fi
   done
   if [[ ! $multiplier -eq $bincount ]]; then
-    echo -e "  ${color_error}Warning:${color_reset} $multiplier bin files expected, but $bincount found"
+    echo -e "${color_error}Warning:${color_reset} $multiplier bin files expected, but $bincount found"
     error "$1 (wrong number of bin files)"
   fi
 }
@@ -236,11 +260,11 @@ bincheck() {
 innocheck() {
   echo "Running innoextract check ..."
   innoerror=false
-  innoextract --gog --test --silent "$1" 2>&1 | sed 's/^/  /'
+  innoextract --gog --test --silent "$1" 2>&1
   if [[ ${PIPESTATUS[0]} != 0 ]]; then
     innoerror=true
   else
-    echo -e "  No errors reported"
+    echo -e "No errors reported"
   fi
 
   # Detect RAR archives
@@ -253,12 +277,13 @@ innocheck() {
 
   if [[ $innoerror == true ]]; then
     error "$1 (innoextract)"
-    echo -e "  ${color_error}innoextract encountered errors!${color_reset}"
+    echo -e "${color_error}innoextract encountered errors!${color_reset}"
   fi
 }
 
 scriptresult() {
   [[ $checkcount -eq 0 ]] && exit
+  strongseparator
   echo
   if [[ $errorcount -eq 0 ]]; then
     echo -en "${color_success}"
@@ -279,24 +304,24 @@ scriptresult() {
     echo "Files that produced errors:"
     echo "---------------------------"
     echo -e "${color_error}$errorfiles${color_reset}"
+    exit 1
   fi
-  exit "$errorcount" # Script's return code is total number of errors
 }
 
 trap '{ echo " Script aborted"; scriptresult; }' SIGINT # Catch CTRL-C commands
 
 gogcheck() {
+  strongseparator
   titlebar "$1"
   if [[ $check_signatures == 1 ]]; then separator; sigcheck "$1"; fi
   if [[ $check_binaries == 1 ]]; then separator; bincheck "$1"; fi
   if [[ $check_innosetup == 1 ]]; then separator; innocheck "$1"; fi
-  strongseparator
 }
 
 # Main loop
 while [[ $1 != "" ]]; do
   if [[ -d "$1" ]]; then
-    for exe in "$1"/*.exe; do
+    for exe in "${1%/}"/*.exe; do
       [[ -f "$exe" ]] || continue
       gogcheck "$exe"
     done
@@ -307,3 +332,4 @@ while [[ $1 != "" ]]; do
 done
 
 scriptresult
+exit 0
