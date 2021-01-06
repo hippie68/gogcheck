@@ -1,8 +1,9 @@
 #!/bin/bash
 
-# This script tests GOG .exe and .bin files for authenticity and integrity.
-# It can run 3 checks: digital signature verification, .bin checksum verification,
-# and Inno Setup checksum verification (the actual game files).
+# This script tests GOG .exe and .bin files for authenticity and file integrity.
+# It can run 3 checks: digital signature verification, bin checksum verification,
+# and Inno Setup checksum verification (testing the actual game files).
+# The goal is to ensure game files haven't been tempered with by a 3rd party.
 #
 # The following programs are required:
 #   - osslsigncode (e.g. https://github.com/mtrojnar/osslsigncode)
@@ -65,21 +66,31 @@ fi
 
 # Script starts below
 
+# "okstrings" and "errorstrings" are used to highlight osslsigncode's results
+okstrings="Signature verification: ok"
+errorstrings="MISMATCH!!!!|MISMATCH!!!|MISMATCH|failed|Failed|No signature found."
+
+rarcount=0 # Global number of RAR archives encountered by innocheck()
+rarfiles=""
+errorcount=0 # Global count of file checks or unexpected
+errorfiles=""
+checkcount=0 # Each exe file gets a unique number - used for tracking errors faster
+
 usage() {
   echo "Usage: ${0//*\/} [options] [file(s)/folder(s)]"
   echo "  Checks your GOG offline installer collection for valid digital signatures and correct checksums, making sure the files are legit and have not been tempered with."
   echo "  If no files or folders are specified, the current directory will be used."
-  echo "  If no options are specified, all checks will be run."
+  echo "  If no options are specified, signature and bin file checks will be run."
   echo
   echo "  The checks consist of 3 parts:"
-  echo "    1. Digital signature verification for .exe files"
-  echo "    2. BIN file checksum verification"
-  echo "    3. Inno Setup file checksum verification (actual game files packed inside .exe and .bin files)"
+  echo "    1. Digital signature verification for exe files"
+  echo "    2. Bin file checksum verification"
+  echo "    3. Inno Setup file checksum verification (actual game files packed inside exe and bin files)"
   echo
   echo "    Options:"
-  echo "      -b Enables .bin files checksum verification"
+  echo "      -b Enables bin files checksum verification"
   echo "      -i Enables Inno Setup checksum verification"
-  echo "      -s Enables .exe digital signature verification"
+  echo "      -s Enables exe digital signature verification"
   echo "      -h Displays this help"
   echo "      -v Returns exit code 0"
   echo "      -- Anything following this is considered a file/folder"
@@ -103,41 +114,28 @@ while [[ $1 == "-"* && ${#1} -gt 1 ]]; do
   shift
 done
 
-# If no check has been enabled, enable all
+[[ $1 == "" ]] && set -- . # If no arguments have been given, use current directory
+
+# If no check has been enabled, enable signature and bin checks
 if [[ $check_signatures$check_binaries$check_innosetup == "" ]]; then
-  check_signatures=1 check_binaries=1 check_innosetup=1
+  check_signatures=1 check_binaries=1
 fi
 
 # Disable features if required commands not found
-if ! hash osslsigncode &> /dev/null; then
-  echo "osslsigncode binary not found! It is required to verify .exe signatures."
-  echo "Digital signature verification disabled."
-  check_signatures=0
-fi
-if ! hash strings &> /dev/null; then
-  echo "GNU strings binary not found! It is required to verify GOG .bin file checksums."
-  echo "On Debian-based distros, it comes with the package 'binutils'"
-  echo "BIN file checksum verification disabled."
-  check_binaries=0
-fi
-if ! hash innoextract &> /dev/null; then
-  echo "innoextract binary not found! It is required to verify checksums of compressed files inside .exe and .bin files."
+[[ $check_signatures == 1 ]] &&  ! hash osslsigncode &> /dev/null && {
+  echo "osslsigncode binary not found! Which is required to verify exe signatures."
+  exit 1
+}
+[[ $check_binaries == 1 ]] && ! hash strings &> /dev/null && {
+  echo "GNU strings binary not found! Which is required to verify GOG bin file checksums."
+  echo "On Debian-based distros, it comes with the package 'binutils'."
+  exit 1
+}
+[[ $check_innosetup == 1 ]] && ! hash innoextract &> /dev/null && {
+  echo "innoextract binary not found! Which is required to verify checksums of compressed files inside .exe and .bin files."
   echo "Download the latest version from https://constexpr.org/innoextract/"
-  echo "Inno Setup file checksum verification disabled."
-  check_innosetup=0
-fi
-
-# "okstrings" and "errorstrings" are used to highlight osslsigncode's results
-okstrings="Signature verification: ok"
-errorstrings="MISMATCH!!!!|MISMATCH!!!|MISMATCH|failed|Failed|No signature found."
-
-rarcount=0 # Global number of .rar archives encountered by innocheck()
-rarfiles=""
-errorcount=0 # Global count of file checks or unexpected
-errorfiles=""
-checkcount=0 # Each .exe file gets a unique number - used for tracking errors faster
-
-[[ $1 == "" ]] && set -- . # If no arguments given, use current directory
+  exit 1
+}
 
 debugmessage() { [[ $debug == true ]] && echo -e "${color_debug}DEBUG MESSAGE: $1${color_reset}"; }
 
@@ -150,11 +148,27 @@ titlebar() {
   echo -e "${color_file}[$checkcount] $1${color_reset}"
 }
 
+# Displays a separating line between checks
+separator() {
+  echo "--------------------------------------------------------------------------------"
+}
+
+# Displays a strong separating line between different .exe files
+strongseparator() {
+  echo "================================================================================"
+}
+
 sigcheck() {
   echo "Running signature check ..."
-  result=$(osslsigncode verify "$1")
+  # This rather complicated code with the "result" and "returncode" variables works
+  # around osslsigncode's stderr and exit status behavior.
+  result=$(osslsigncode verify "$1" 2>&1)
   returncode=$?
+  # sed removes whitespace and empty lines to save space, and it removes the misleading
+  # "Succeeded" message that osslsigncode creates even when there's an (perceived) error.
+  # It also indents lines. awk colorizes the output.
   echo "$result" \
+    | sed -e 's/^\s\+//' -e '/^$/d' -e '/^Succeeded$/d' -e 's/^/  /' \
     | awk '{ gsub("'"$okstrings"'", "'"$color_success"'&'"$color_reset"'");
              gsub("'"$errorstrings"'", "'"$color_error"'&'"$color_reset"'");
              gsub("'"$serials|$subjects|$issuers"'", "'"$color_known"'&'"$color_reset"'"); print }'
@@ -166,15 +180,15 @@ sigcheck() {
 bincheck() {
   echo "Running bin check ..."
   crcstring=$(tac "$1" | strings | grep -m 1 -i '#GOGCRCSTRING')
-  debugmessage "Raw GOGCRCSTRING: $crcstring"
+  debugmessage "  Raw GOGCRCSTRING: $crcstring"
   if [[ $crcstring == "" ]]; then
-    echo "No bin file checksums found"
+    echo -e "  ${color_error}No bin file checksums found inside the exe file.${color_reset}"
     if compgen -G "${1%.exe}-*.bin" > /dev/null; then
-      echo -e "However, bin file(s) found:"
+      echo "  However, bin file(s) exist on the file system:"
       for i in ${1%.exe}-*.bin; do
-        echo "  $i"
+        echo "    $i"
       done
-      echo -e "${color_error}Cannot verify the bin file(s) without knowing any checksums!${color_reset}"
+      echo -e "  ${color_error}Without checksums, cannot verify the bin file(s)!${color_reset}"
       error "$1 (bin checksums missing)"
     fi
     return
@@ -182,20 +196,20 @@ bincheck() {
   crcstring=${crcstring%#GOGCRCSTRING*} # Remove the string name, leaving numbers
   multiplier=${crcstring: -2} # The 2-digit number before '#GOGCRCSTRING'
   if [[ $multiplier == "00" ]]; then
-    echo "Exe has no bin files"
+    echo "  Exe claims to have no bin files."
     return
   fi
   crcstring=${crcstring::-2} # Remove the 2-digit number
   md5hashes=${crcstring:(( - 10#$multiplier * 32 ))} # Omit characters not part of the hashes
   md5hashes=${md5hashes,,} # Set md5 hashes to lowercase
-  debugmessage "Raw MD5 hashes: $md5hashes"
-  echo -n "Found $((multiplier)) checksum"
+  debugmessage "  Raw MD5 hashes: $md5hashes"
+  echo -n "  Found $((multiplier)) checksum"
   if [[ $multiplier == "01" ]]; then echo ":"; else echo "s:"; fi
 
   for i in $(seq -w 01 "$multiplier"); do
     checksum=${md5hashes:(( 32 * ((10#$i - 1)) )):32}
     [[ $checksum == "" ]] && checksum="[empty]                         "
-    echo "  $checksum"
+    echo "    $checksum"
     checksums+="$checksum " # Add current checksum to known checksums
   done
 
@@ -203,18 +217,18 @@ bincheck() {
   for bin in "${1%.exe}"-*.bin; do
     ((bincount++))
     filename=${bin##*/}
-    echo "Verifying $filename"
+    echo "  Verifying $filename"
     result=$(md5sum "$bin")
     checksum=${result%  *}
     if [[ $checksums == *"$checksum"* ]]; then
-      echo -e "  $checksum ${color_success}OK${color_reset}"
+      echo -e "    $checksum ${color_success}OK${color_reset}"
     else
-      echo -e "  $checksum ${color_error}ERROR${color_reset}"
+      echo -e "    $checksum ${color_error}ERROR${color_reset}"
       error "$filename (wrong checksum)"
     fi
   done
   if [[ ! $multiplier -eq $bincount ]]; then
-    echo -e "${color_error}Warning:${color_reset} $multiplier bin files expected, but $bincount found"
+    echo -e "  ${color_error}Warning:${color_reset} $multiplier bin files expected, but $bincount found"
     error "$1 (wrong number of bin files)"
   fi
 }
@@ -222,13 +236,16 @@ bincheck() {
 innocheck() {
   echo "Running innoextract check ..."
   innoerror=false
-  innoextract --test --silent --progress=1 "$1"
-  [[ $? != 0 ]] && innoerror=true
+  innoextract --gog --test --silent "$1" 2>&1 | sed 's/^/  /'
+  if [[ ${PIPESTATUS[0]} != 0 ]]; then
+    innoerror=true
+  else
+    echo -e "  No errors reported"
+  fi
 
-# show info why RAR archives are skipped
+  # Detect RAR archives
   if [[ -f "${1%.exe}"-1.bin ]]; then
     if [[ $(file "${1%.exe}"-1.bin) == *RAR* ]]; then
-      echo "SCRIPT MESSAGE: The bin file(s) for this particular game are in RAR format, so they are not part of Inno Setup and have been skipped due to missing checksums."
       ((rarcount++))
       rarfiles+="$1"$'\n'
     fi
@@ -236,7 +253,7 @@ innocheck() {
 
   if [[ $innoerror == true ]]; then
     error "$1 (innoextract)"
-    echo -e "${color_error}innoextract encountered errors!${color_reset}"
+    echo -e "  ${color_error}innoextract encountered errors!${color_reset}"
   fi
 }
 
@@ -255,28 +272,28 @@ scriptresult() {
   fi
   echo
   if [[ $rarcount -gt 0 ]]; then
-    echo "Files with skipped RAR bins:"
+    echo "Files with RAR archive bins:"
     echo "$rarfiles"
-    echo
   fi
   if [[ $errorcount -gt 0 ]]; then
     echo "Files that produced errors:"
     echo "---------------------------"
     echo -e "${color_error}$errorfiles${color_reset}"
   fi
-  exit "$errorcount" # script's return code is total number of errors
+  exit "$errorcount" # Script's return code is total number of errors
 }
 
 trap '{ echo " Script aborted"; scriptresult; }' SIGINT # Catch CTRL-C commands
 
 gogcheck() {
   titlebar "$1"
-  [[ $check_signatures == 1 ]] && sigcheck "$1"
-  [[ $check_binaries == 1 ]] && bincheck "$1"
-  [[ $check_innosetup == 1 ]] && innocheck "$1"
+  if [[ $check_signatures == 1 ]]; then separator; sigcheck "$1"; fi
+  if [[ $check_binaries == 1 ]]; then separator; bincheck "$1"; fi
+  if [[ $check_innosetup == 1 ]]; then separator; innocheck "$1"; fi
+  strongseparator
 }
 
-# main loop
+# Main loop
 while [[ $1 != "" ]]; do
   if [[ -d "$1" ]]; then
     for exe in "$1"/*.exe; do
