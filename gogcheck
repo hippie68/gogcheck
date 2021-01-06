@@ -306,6 +306,7 @@ scriptresult() {
     echo -e "${color_error}$errorfiles${color_reset}"
     exit 1
   fi
+  exit 0
 }
 
 trap '{ echo " Script aborted"; scriptresult; }' SIGINT # Catch CTRL-C commands
@@ -332,4 +333,3 @@ while [[ $1 != "" ]]; do
 done
 
 scriptresult
-exit 0
