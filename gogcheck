@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# This script tests GOG .exe and .bin files for authenticity and file integrity.
+# This script tests GOG exe and bin files for authenticity and file integrity.
 # It can run 3 checks: digital signature verification, bin checksum verification,
 # and Inno Setup checksum verification (testing the actual game files).
 # The goal is to ensure game files haven't been tempered with by a 3rd party.
@@ -61,7 +61,7 @@ if [[ $color == "true" ]]; then
   color_success='\033[1;92m'
   color_error='\033[91m'
   color_known='\033[32m'
-  color_file='\033[1;95m'
+  color_file='\033[1;94m'
   color_reset='\033[0;39m'
   color_debug='\033[90m'
   grep_color_success=${color_success:5:((${#color_success}-6))}
@@ -80,6 +80,7 @@ rarfiles=""
 errorcount=0 # Global count of file checks or unexpected
 errorfiles=""
 checkcount=0 # Each exe file gets a unique number - used for tracking errors faster
+exeprefix='setup_'
 
 # Escapes all regexp metacharacters in user strings for use with grep or awk
 prepare_user_strings() {
@@ -98,9 +99,9 @@ issuers=$(prepare_user_strings "$issuers")
 
 usage() {
   echo "Usage: ${0//*\/} [options] [file(s)/folder(s)]"
-  echo "  Checks your GOG offline installer collection for valid digital signatures and correct checksums, making sure the files are legit and have not been tempered with."
-  echo "  If no files or folders are specified, the current directory will be used."
-  echo "  If no options are specified, signature and bin file checks will be run."
+  echo "Checks your GOG offline installer collection for valid digital signatures and correct checksums, making sure the files are legit and have not been tempered with."
+  echo "If no files or folders are specified, the current directory will be used."
+  echo "If no options are specified, all checks will be run."
   echo
   echo "  The checks consist of 3 parts:"
   echo "    1. Digital signature verification for exe files"
@@ -109,10 +110,10 @@ usage() {
   echo
   echo "    Options:"
   echo "      -b Enables bin files checksum verification"
+  echo "      -F Force checks on all exe files (not just setup_*.exe)"
+  echo "      -h Displays this help"
   echo "      -i Enables Inno Setup checksum verification"
   echo "      -s Enables exe digital signature verification"
-  echo "      -h Displays this help"
-  echo "      -v Returns exit code 0"
   echo "      -- Anything following this is considered a file/folder"
   echo
   exit 0
@@ -123,11 +124,11 @@ while [[ $1 == "-"* && ${#1} -gt 1 ]]; do
   if [[ $1 == "--" ]]; then shift; break; fi
   for ((i=1;i<${#1};i++)); do
     case ${1:i:1} in
-      s) check_signatures=1;;
       b) check_binaries=1;;
-      i) check_innosetup=1;;
+      F) exeprefix='';;
       h) usage;;
-      v) exit 0;;
+      i) check_innosetup=1;;
+      s) check_signatures=1;;
       *) echo "${0//*\/}: invalid option: '${1:i:1}'"; usage;;
     esac
   done
@@ -136,9 +137,9 @@ done
 
 [[ $1 == "" ]] && set -- . # If no arguments have been given, use current directory
 
-# If no check has been enabled, enable signature and bin checks
+# If no check has been enabled, enable all checks
 if [[ $check_signatures$check_binaries$check_innosetup == "" ]]; then
-  check_signatures=1 check_binaries=1
+  check_signatures=1 check_binaries=1 check_innosetup=1
 fi
 
 # Find out if required and optional commands are available
@@ -152,20 +153,16 @@ fi
   exit 1
 }
 [[ $check_innosetup == 1 ]] && ! hash innoextract &> /dev/null && {
-  echo "innoextract binary not found! Which is required to verify checksums of compressed files inside .exe and .bin files."
+  echo "innoextract binary not found! Which is required to verify checksums of compressed files inside exe and bin files."
   echo "Download the latest version from https://constexpr.org/innoextract/"
   exit 1
 }
-if ! hash sed &> /dev/null; then
-  echo "sed binary not found! Which is optionally required for further output formatting.";
-else
-  sedfound=true
-fi
+hash sed &> /dev/null && sedfound=true # Enable optional sed if present
 
 debugmessage() { [[ $debug == true ]] && echo -e "${color_debug}DEBUG MESSAGE: $1${color_reset}"; }
 
 # Used for logging errors; argument format: "filename (reason)"
-error() { ((errorcount++)); errorfiles+="$1 [$checkcount]"$'\n'; }
+error() { ((errorcount++)); errorfiles+="[$checkcount] $1"$'\n'; }
 
 # Displays the currently checked .exe file
 titlebar() {
@@ -203,48 +200,51 @@ sigcheck() {
 
 bincheck() {
   echo "Running bin check ..."
-  crcstring=$(tac "$1" | strings | grep -m 1 -i '#GOGCRCSTRING')
+  local crcstring=$(tac "$1" | strings | grep -m 1 -i '#GOGCRCSTRING')
   debugmessage "  Raw GOGCRCSTRING: $crcstring"
 
   # Leave if no checksums found
   if [[ $crcstring == "" ]]; then
-    echo -e "${color_error}No bin file checksums found inside the exe file.${color_reset}"
+    echo -e "No bin file checksums found."
     if compgen -G "${1%.exe}-*.bin" > /dev/null; then
-      echo "However, bin file(s) exist on the file system:"
-      for i in ${1%.exe}-*.bin; do echo "  $i"; done
+      echo "However, matching bin file(s) exist:"
+      for i in "${1%.exe}"-*.bin; do echo "  $i"; done
       echo -e "${color_error}Without checksums, cannot verify the bin file(s)!${color_reset}"
       error "$1 (bin checksums missing)"
     else
-      echo "No bin files found."
+      echo "No matching bin files found either."
+      echo -e "${color_error}Is this exe a GOG installer?${color_reset}"
+      error "$1 (not a GOG installer?)"
     fi
     return
   fi
 
   crcstring=${crcstring%#GOGCRCSTRING*} # Remove the string name, leaving numbers
-  multiplier=${crcstring: -2} # The 2-digit number before '#GOGCRCSTRING'
+  local multiplier=${crcstring: -2} # The 2-digit number before '#GOGCRCSTRING'
 
   # Leave if installer expects 0 bin files
   if [[ $multiplier == "00" ]]; then
     echo "Exe file claims not to have bin files."
     if compgen -G "${1%.exe}-*.bin" > /dev/null; then
-      echo "However, bin file(s) exist on the file system:"
-      for i in ${1%.exe}-*.bin; do echo "  $i"; done
-      echo -e "${color_error}Unresolved dilemma - aborting.${color_reset}"
+      echo "However, matching bin file(s) exist:"
+      for i in "${1%.exe}"-*.bin; do echo "  $i"; done
+      echo -e "${color_error}Unresolved dilemma, aborting.${color_reset}"
       error "$1 (bin files exist that shouldn't)"
     else
-      echo "Which seems true, as there are no bin files on the file system."
+      echo "Which seems true, as no matching bin files have been found."
     fi
     return
   fi
 
   crcstring=${crcstring::-2} # Remove the 2-digit number
-  md5hashes=${crcstring:(( - 10#$multiplier * 32 ))} # Omit characters not part of the hashes
+  local md5hashes=${crcstring:(( - 10#$multiplier * 32 ))} # Omit characters not part of the hashes
   md5hashes=${md5hashes,,} # Set md5 hashes to lowercase
   debugmessage "Raw MD5 hashes: $md5hashes"
   echo -n "Found $((multiplier)) checksum"
   if [[ $multiplier == "01" ]]; then echo ":"; else echo "s:"; fi
 
-  # Compare the checksums
+  # Get the checksums
+  local checksum checksums
   for i in $(seq -w 01 "$multiplier"); do
     checksum=${md5hashes:(( 32 * ((10#$i - 1)) )):32}
     [[ $checksum == "" ]] && checksum="[empty]                         "
@@ -252,20 +252,22 @@ bincheck() {
     checksums+="$checksum " # Add current checksum to known checksums
   done
 
-  bincount=0
+  # Compare the checksums
+  local -i bincount=0
   for bin in "${1%.exe}"-*.bin; do
     ((bincount++))
-    filename=${bin##*/}
-    echo "Verifying $filename"
-    result=$(md5sum "$bin")
-    checksum=${result%  *}
+    echo "Verifying ${bin##*/}"
+    checksum=$(md5sum "$bin")
+    checksum=${checksum%  *}
     if [[ $checksums == *"$checksum"* ]]; then
       echo -e "  $checksum ${color_success}OK${color_reset}"
     else
       echo -e "  $checksum ${color_error}ERROR${color_reset}"
-      error "$filename (wrong checksum)"
+      error "${bin##*/} (wrong checksum)"
     fi
   done
+
+  # Throw an error when the numbers of checksums and bins differ
   if [[ ! $multiplier -eq $bincount ]]; then
     echo -e "${color_error}Warning:${color_reset} $multiplier bin files expected, but $bincount found"
     error "$1 (wrong number of bin files)"
@@ -274,25 +276,48 @@ bincheck() {
 
 innocheck() {
   echo "Running innoextract check ..."
-  innoerror=false
-  innoextract --gog --test --silent "$1" 2>&1
-  if [[ ${PIPESTATUS[0]} != 0 ]]; then
-    innoerror=true
-  else
-    echo -e "No errors reported"
+
+  # Abort if exe is not an Inno Setup installer
+  if ! innoextract --info "$1" > /dev/null; then
+    echo -e "${color_error}innoextract reported errors while probing the file.${color_reset}"
+    error "$1 (innoextract file probing)"
+    return
   fi
+
+  # Display archive's filesize and checksum summary
+  local -i filesize=0 filecount=0 foldercount=0 sha1count=0 md5count=0
+  while read -a array; do
+    # 0: file size, 1: checksum type, 2: checksum, 3: file name
+    if [[ ${array[0]} == +([[:digit:]]) ]]; then
+      ((filesize+=${array[0]}))
+      ((filecount++))
+    else
+      [[ ${array[0]: -1} == '/' ]] && ((foldercount++)) # Skips innoextract messages, too
+    fi
+    case ${array[1]} in
+      SHA-1) ((sha1count++));;
+      MD5) ((md5count++));;
+    esac
+  done < <(innoextract --list-sizes --list-checksums --silent "$1")
+  echo "$filecount files and $foldercount empty folders ($((filesize/1024/1024)) MiB)"
+  echo "$((sha1count + md5count)) checksums ($sha1count SHA-1, $md5count MD5)"
 
   # Detect RAR archives
   if [[ -f "${1%.exe}"-1.bin ]]; then
     if [[ $(file "${1%.exe}"-1.bin) == *RAR* ]]; then
+      echo "Bin(s) are RAR archive(s) (Inno Setup doesn't know contents' checksums)."
       ((rarcount++))
       rarfiles+="$1"$'\n'
     fi
   fi
 
-  if [[ $innoerror == true ]]; then
-    error "$1 (innoextract)"
-    echo -e "${color_error}innoextract encountered errors!${color_reset}"
+  # Test-extract Inno Setup archive
+  if ! innoextract --gog --test --silent --progress=1 "$1" 2>&1; then
+    echo -e "${color_error}innoextract reported errors.${color_reset}"
+    error "$1 (innoextract extraction)"
+    return
+  else
+    echo -e "Verification complete."
   fi
 }
 
@@ -337,11 +362,11 @@ gogcheck() {
 # Main loop
 while [[ $1 != "" ]]; do
   if [[ -d "$1" ]]; then
-    for exe in "${1%/}"/*.exe; do
+    for exe in "${1%/}"/"$exeprefix"*.exe; do
       [[ -f "$exe" ]] || continue
       gogcheck "$exe"
     done
-  elif [[ -f "$1" ]] && [[ $1 == *.exe ]]; then
+  elif [[ -f "$1" ]] && [[ $1 == "$exeprefix"*.exe ]]; then
     gogcheck "$1"
   fi
   shift
