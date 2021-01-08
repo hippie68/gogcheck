@@ -7,7 +7,6 @@
 #
 # The following programs are required:
 #   - osslsigncode (e.g. https://github.com/mtrojnar/osslsigncode)
-#   - GNU strings (on Debian in 'binutils' package)
 #   - innoextract (https://constexpr.org/innoextract/)
 #
 # This script is considered work-in-progress and expected to have bugs.
@@ -110,7 +109,7 @@ usage() {
   echo
   echo "    Options:"
   echo "      -b Enables bin files checksum verification"
-  echo "      -F Force checks on all exe files (not just setup_*.exe)"
+  echo "      -F Forces checks on all exe files (not just setup_*.exe)"
   echo "      -h Displays this help"
   echo "      -i Enables Inno Setup checksum verification"
   echo "      -s Enables exe digital signature verification"
@@ -182,8 +181,6 @@ strongseparator() {
 
 sigcheck() {
   echo "Running signature check ..."
-  # This rather complicated code with the "result" and "returncode" variables works
-  # around osslsigncode's stderr and exit status behavior.
   result=$(osslsigncode verify "$1" 2>&1)
   returncode=$?
   # sed removes whitespace and empty lines to save space, and it removes the misleading
@@ -200,8 +197,9 @@ sigcheck() {
 
 bincheck() {
   echo "Running bin check ..."
-  local crcstring=$(tac "$1" | strings | grep -m 1 -i '#GOGCRCSTRING')
-  debugmessage "  Raw GOGCRCSTRING: $crcstring"
+  local crcstring
+  crcstring=$(tac "$1" | grep -a -m 1 -i -o '[[:alnum:]]*#GOGCRCSTRING')
+  debugmessage "Raw GOGCRCSTRING: $crcstring"
 
   # Leave if no checksums found
   if [[ $crcstring == "" ]]; then
@@ -289,7 +287,7 @@ innocheck() {
   while read -a array; do
     # 0: file size, 1: checksum type, 2: checksum, 3: file name
     if [[ ${array[0]} == +([[:digit:]]) ]]; then
-      ((filesize+=${array[0]}))
+      ((filesize+=array[0]))
       ((filecount++))
     else
       [[ ${array[0]: -1} == '/' ]] && ((foldercount++)) # Skips innoextract messages, too
