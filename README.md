@@ -18,6 +18,8 @@ For Windows users: The scripts also work with the Windows Subsystem for Linux (W
 You may need to download or compile the latest version of innoextract (at least 1.5 for RAR support) if your distro's package is outdated.  
 -> https://constexpr.org/innoextract/#download
 
+gogcheck may still have bugs. Please report any issues at https://github.com/hippie68/gogcheck/issues. Any help or suggestions are very welcome!
+
 Q&A:
 ----
 
