@@ -12,13 +12,17 @@ Required programs:
 - osslsigncode (https://github.com/mtrojnar/osslsigncode)
 - innoextract (https://github.com/dscharrer/innoextract)
 
-For Windows users: The scripts also work with the Windows Subsystem for Linux (WSL) on Windows 10  
+Optional:
+- unrar (optional) to let innoextract test RAR archives (https://www.rarlab.com/rar_add.htm)
+- sed for some minor visual text adjustments
+
+For Windows users: The script also works with the Windows Subsystem for Linux (WSL) on Windows 10  
 -> https://docs.microsoft.com/en-us/windows/wsl/
 
 You may need to download or compile the latest version of innoextract (at least 1.5 for RAR support) if your distro's package is outdated.  
 -> https://constexpr.org/innoextract/#download
 
-gogcheck may still have bugs. Please report any issues at https://github.com/hippie68/gogcheck/issues. Any help or suggestions are very welcome!
+gogcheck may still have bugs. Please report issues at https://github.com/hippie68/gogcheck/issues. Any feedback is very welcome!
 
 Q&A:
 ----
@@ -26,3 +30,7 @@ Q&A:
 What does it mean if sigcheck's output goes green?
 
 It means the string that went green is known to the script. The latter which contains a section in which you can put known-legit strings found in your purchased games. This pre-made string collection is not complete. However, as this optional feature is just there for visual convenience, to quickly spot both known and new strings, it does not affect osslsigncode's functionality.
+
+Is RAR support required?
+
+As innoextract does not know checksums for files stored inside RAR bin files (as opposed to Inno Setup bin files), the verification chain "valid .exe digital signature -> verified .bin checksums -> verified .bin archive contents" is broken at the final stage. You can still use unrar to check for regular CRC errors.
