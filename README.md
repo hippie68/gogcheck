@@ -13,7 +13,7 @@ Required programs:
 - innoextract (https://github.com/dscharrer/innoextract)
 
 Optional:
-- unrar (optional) to let innoextract test RAR archives (https://www.rarlab.com/rar_add.htm)
+- unrar to let innoextract test RAR archives (https://www.rarlab.com/rar_add.htm)
 - sed for some minor visual text adjustments
 
 For Windows users: The script also works with the Windows Subsystem for Linux (WSL) on Windows 10  
