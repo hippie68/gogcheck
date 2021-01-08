@@ -8,16 +8,15 @@ The script consist of 3 functions, run in this order:
 
 The script gogcheck tries to combine all 3 functions in one script.
 
-Required packages (Debian/Ubuntu):
-- sigcheck: osslsigncode
-- bincheck: binutils
-- innocheck: innoextract
+Required programs:
+- osslsigncode (https://github.com/mtrojnar/osslsigncode)
+- innoextract (https://github.com/dscharrer/innoextract)
 
 For Windows users: The scripts also work with the Windows Subsystem for Linux (WSL) on Windows 10  
 -> https://docs.microsoft.com/en-us/windows/wsl/
 
-You may need to download or compile the latest version of innoextract if your distro's package is outdated.  
--> https://constexpr.org/innoextract/#download  
+You may need to download or compile the latest version of innoextract (at least 1.5 for RAR support) if your distro's package is outdated.  
+-> https://constexpr.org/innoextract/#download
 
 Q&A:
 ----
