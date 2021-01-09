@@ -13,6 +13,8 @@
 #   - unrar/unar to test-extract RAR archives
 #   - sed for minor additional output formatting
 #
+# If errors have been encountered, the scripts exits with exit code 1.
+#
 # This script is considered work-in-progress and expected to have bugs.
 # Please report any issues at https://github.com/hippie68/gogcheck
 #
@@ -62,7 +64,7 @@ if [[ $color == "true" ]]; then
   color_success='\033[1;92m'
   color_error='\033[91m'
   color_known='\033[32m'
-  color_file='\033[1;94m'
+  color_file='\033[1;95m'
   color_reset='\033[0;39m'
   color_debug='\033[90m'
   grep_color_success=${color_success:5:((${#color_success}-6))}
@@ -86,22 +88,7 @@ checkcount=0 # Each exe file gets a unique number - used for tracking errors fas
 exeprefix='setup_' # Overridden by command line option -F
 unraroption='--gog'
 
-# Escapes all regexp metacharacters in user strings for use with grep or awk
-prepare_user_strings() {
-  IFS=$'\n'
-  for string in $1; do
-    for char in \[ \] \( \) \. \^ \$ \? \* \+ \|; do
-      string=${string//"$char"/"\\$char"}
-    done
-    result+="$string|"
-  done
-  echo "${result%|}"
-}
-serials=$(prepare_user_strings "$serials")
-subjects=$(prepare_user_strings "$subjects")
-issuers=$(prepare_user_strings "$issuers")
-
-# Command line stuff: ---------------------------------------------------------
+# Initialization: ------------------------------------------------------------
 
 usage() {
   echo "Usage: ${0//*\/} [options] [file(s)/folder(s)]"
@@ -116,10 +103,12 @@ usage() {
   echo
   echo "    Options:"
   echo "      -b Enables bin files checksum verification"
+  echo "      -B Same as -b, but disables bin files checksum calculation"
   echo "      -F Forces checks on all exe files (not just setup_*.exe)"
   echo "      -h Displays this help"
   echo "      -i Enables Inno Setup checksum verification"
-  echo "      -R Disables RAR extraction"
+  echo "      -I Same as -i, but disables test-extracting"
+  echo "      -R Disables RAR test-extracting"
   echo "      -s Enables exe digital signature verification"
   echo "      -- Anything following this is considered a file/folder"
   echo
@@ -132,9 +121,11 @@ while [[ $1 == "-"* && ${#1} -gt 1 ]]; do
   for ((i=1;i<${#1};i++)); do
     case ${1:i:1} in
       b) check_binaries=1;;
+      B) check_binaries=1; disable_binchecksumcalculation=true;;
       F) unset exeprefix;;
       h) usage;;
       i) check_innosetup=1;;
+      I) check_innosetup=1; disable_extracting=true;;
       R) unset unraroption;;
       s) check_signatures=1;;
       *) echo "${0//*\/}: invalid option: '${1:i:1}'"; usage;;
@@ -164,20 +155,35 @@ fi
 hash sed &> /dev/null && sedfound=true # Enable optional sed if present
 
 # Disable unrar if not available
-if ! hash unrar &> /dev/null && ! hash unar &> /dev/null; then
+if [[ -z ${unraroption+x} ]] && ! hash unrar &> /dev/null && ! hash unar &> /dev/null; then
   unset unraroption
   echo "unrar/unar binary not found - RAR extraction has been disabled."
 fi
+
+# Escapes all regexp metacharacters in user strings for use with grep
+prepare_user_strings() {
+  IFS=$'\n'
+  for string in $1; do
+    for char in \[ \] \( \) \. \^ \$ \? \* \+ \|; do
+      string=${string//"$char"/"\\$char"}
+    done
+    result+="$string|"
+  done
+  echo "${result%|}"
+}
+serials=$(prepare_user_strings "$serials")
+subjects=$(prepare_user_strings "$subjects")
+issuers=$(prepare_user_strings "$issuers")
 
 # Functions: ------------------------------------------------------------------
 
 debugmessage() { [[ $debug == true ]] && echo -e "${color_debug}DEBUG MESSAGE: $1${color_reset}"; }
 
-# Used for logging errors; argument format: "filename (reason)"
-error() { ((errorcount++)); errorfiles+="[$checkcount] $1"$'\n'; }
+# Used for logging errors; argument format: "filename" "reason"
+error() { ((errorcount++)); errorfiles+="[$checkcount] $1 ($2)"$'\n'; }
 
 sigcheck() {
-  echo "Running signature check ..."
+  echo "Running signature check..."
   result=$(osslsigncode verify "$1" 2>&1)
   returncode=$?
   # sed removes whitespace and empty lines to save space, and it removes the misleading
@@ -186,14 +192,14 @@ sigcheck() {
      | GREP_COLOR=$grep_color_known grep --color=always -E "$serials|$subjects|$issuers|$" \
      | GREP_COLOR=$grep_color_error grep --color=always -E "$errorstrings|$" \
      | GREP_COLOR=$grep_color_success grep --color=always -E "$okstrings|$" \
-     | if [[ $sedfound == true ]]; then sed -e 's/^\s\+//' -e '/^$/d' -e '/^Succeeded$/d'; else cat; fi
+     | if [[ $sedfound == true ]]; then sed -e 's/^\s\+//' -e '/^$/d' -e '/^Succeeded$/d' -e '/^------------------/d'; else cat; fi
   if [[ $returncode != 0 || $(echo "$result" | grep -o 'No signature found.') != '' ]]; then
-    error "$1 (digital signature)"
+    error "$1" "digital signature"
   fi
 }
 
 bincheck() {
-  echo "Running bin check ..."
+  echo "Running bin check..."
   local crcstring
   crcstring=$(tac "$1" | grep -a -m 1 -i -o '[[:alnum:]]*#GOGCRCSTRING')
   debugmessage "Raw GOGCRCSTRING: $crcstring"
@@ -205,11 +211,11 @@ bincheck() {
       echo "However, matching bin file(s) exist:"
       for i in "${1%.exe}"-*.bin; do echo "  $i"; done
       echo -e "${color_error}Without checksums, cannot verify the bin file(s)!${color_reset}"
-      error "$1 (bin checksums missing)"
+      error "$1" "bin checksums missing"
     else
       echo "No matching bin files found either."
       echo -e "${color_error}Is this exe a GOG installer?${color_reset}"
-      error "$1 (not a GOG installer?)"
+      error "$1" "not a GOG installer?"
     fi
     return
   fi
@@ -224,7 +230,7 @@ bincheck() {
       echo "However, matching bin file(s) exist:"
       for i in "${1%.exe}"-*.bin; do echo "  $i"; done
       echo -e "${color_error}Unresolved dilemma, aborting.${color_reset}"
-      error "$1 (bin files exist that shouldn't)"
+      error "$1" "bin files exist that shouldn't"
     else
       echo "Which seems true, as no matching bin files have been found."
     fi
@@ -243,39 +249,42 @@ bincheck() {
   for i in $(seq -w 01 "$multiplier"); do
     checksum=${md5hashes:(( 32 * ((10#$i - 1)) )):32}
     [[ $checksum == "" ]] && checksum="[empty]                         "
-    echo "  $checksum"
+    echo "$checksum"
     checksums+="$checksum " # Add current checksum to known checksums
   done
 
   # Compare the checksums
+  [[ $disable_binchecksumcalculation != true ]] && echo "Verifying bin files..."
   local -i bincount=0
   for bin in "${1%.exe}"-*.bin; do
     ((bincount++))
-    echo "Verifying ${bin##*/}"
-    checksum=$(md5sum "$bin")
-    checksum=${checksum%  *}
-    if [[ $checksums == *"$checksum"* ]]; then
-      echo -e "  $checksum ${color_success}OK${color_reset}"
-    else
-      echo -e "  $checksum ${color_error}ERROR${color_reset}"
-      error "${bin##*/} (wrong checksum)"
+    if [[ $disable_binchecksumcalculation != true ]]; then
+      echo -n "...${bin: -29} "
+      checksum=$(md5sum "$bin")
+      checksum=${checksum%  *}
+      if [[ $checksums == *"$checksum"* ]]; then
+        echo -e "$checksum ${color_success}OK${color_reset}"
+      else
+        echo -e "$checksum ${color_error}Error${color_reset}"
+        error "${bin##*/}" "wrong checksum"
+      fi
     fi
   done
 
   # Throw an error when the numbers of checksums and bins differ
   if [[ ! $multiplier -eq $bincount ]]; then
     echo -e "${color_error}Warning: ${multiplier/#00/0} bin files expected, but $bincount found.${color_reset}"
-    error "$1 (wrong number of bin files)"
+    error "$1" "wrong number of bin files"
   fi
 }
 
 innocheck() {
-  echo "Running innoextract check ..."
+  echo "Running innoextract check..."
 
   # Abort if exe is not an Inno Setup installer
   if ! innoextract --info "$1" > /dev/null; then
     echo -e "${color_error}innoextract reported errors while probing the file.${color_reset}"
-    error "$1 (innoextract file probing)"
+    error "$1" "innoextract file probing"
     return
   fi
 
@@ -294,9 +303,9 @@ innocheck() {
   done < <(innoextract --list-sizes --list-checksums --silent "$1" 2> /dev/null)
   echo "$filecount files ($((filesize/1024/1024)) MiB)"
   echo "$((sha1count + md5count)) checksums ($sha1count SHA-1, $md5count MD5)"
-  if [[ ! $filecount -eq $(($sha1count + $md5count)) ]]; then
+  if [[ ! $filecount -eq $((sha1count + md5count)) ]]; then
     echo "${color_error}Warning: Numbers of files and checksums differ.${color_reset}"
-    error "$1 (innoextract checksum info)"
+    error "$1" "innoextract checksum info"
   fi
 
   # Detect RAR archives
@@ -312,43 +321,29 @@ innocheck() {
   fi
 
   # Test-extract Inno Setup archive
-  if ! innoextract $unraroption --test --silent --progress=1 "$1"; then
-    echo -e "${color_error}innoextract reported errors.${color_reset}"
-    error "$1 (innoextract extraction)"
-    return
-  else
-    echo -e "Verification complete."
-  fi
-}
-
-# Displays the currently checked .exe file
-titlebar() {
-  ((checkcount++))
-  echo -e "${color_file}[$checkcount] $1${color_reset}"
-}
-
-# Displays a separating line between checks
-separator() {
-  echo "--------------------------------------------------------------------------------"
-}
-
-# Displays a strong separating line between different .exe files
-strongseparator() {
-  echo "================================================================================"
+  if [[ $disable_extracting != true ]]; then
+    echo "Test-extracting files..."
+    if ! innoextract $unraroption --test --silent --progress=1 "$1"; then
+      echo -e "${color_error}innoextract reported errors.${color_reset}"
+      error "$1" "innoextract extraction"
+      return
+   else
+     echo -e "Test-extracting successful."
+   fi
+ fi
 }
 
 gogcheck() {
-  strongseparator
-  titlebar "$1"
-  if [[ $check_signatures == 1 ]]; then separator; sigcheck "$1"; fi
-  if [[ $check_binaries == 1 ]]; then separator; bincheck "$1"; fi
-  if [[ $check_innosetup == 1 ]]; then separator; innocheck "$1"; fi
+  ((checkcount++))
+  echo -e "[$checkcount] ${color_file}$1${color_reset}"
+  if [[ $check_signatures == 1 ]]; then sigcheck "$1"; fi
+  if [[ $check_binaries == 1 ]]; then bincheck "$1"; fi
+  if [[ $check_innosetup == 1 ]]; then innocheck "$1"; fi
+  echo
 }
 
 scriptresult() {
   [[ $checkcount -eq 0 ]] && exit
-  strongseparator
-  echo
   if [[ $errorcount -eq 0 ]]; then
     echo -en "${color_success}"
   else
@@ -373,7 +368,7 @@ scriptresult() {
   fi
   exit 0
 }
-trap '{ echo " Script aborted"; scriptresult; }' SIGINT # Catch CTRL-C commands
+trap '{ echo " Script aborted."; scriptresult; }' SIGINT # Catch CTRL-C commands
 
 # Main loop: ------------------------------------------------------------------
 
