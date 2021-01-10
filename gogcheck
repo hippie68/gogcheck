@@ -81,12 +81,13 @@ okstrings="Signature verification: ok"
 errorstrings="MISMATCH!!!!|MISMATCH!!!|MISMATCH|failed|Failed|No signature found."
 
 rarcount=0 # Global number of RAR archives encountered by innocheck()
-rarfiles=""
+rarfiles="" # List of bins that are identified as RAR archives
 errorcount=0 # Global count of errors or unexpected results
-errorfiles=""
+errorfiles="" # List of files that produced errors
 checkcount=0 # Each exe file gets a unique number - used for tracking errors faster
 exeprefix='setup_' # Overridden by command line option -F
-unraroption='--gog'
+maxdepth="-maxdepth 1" # Standard value for main loop's "find" command, unless -r set
+unraroption='--gog' # Enables RAR test-extracting
 
 # Initialization: ------------------------------------------------------------
 
@@ -103,11 +104,12 @@ usage() {
   echo
   echo "    Options:"
   echo "      -b Enables bin files checksum verification"
-  echo "      -B Same as -b, but disables bin files checksum calculation"
+  echo "      -B Same as -b, but disables checksum calculation"
   echo "      -F Forces checks on all exe files (not just setup_*.exe)"
   echo "      -h Displays this help"
   echo "      -i Enables Inno Setup checksum verification"
   echo "      -I Same as -i, but disables test-extracting"
+  echo "      -r Traverses directories recursively"
   echo "      -R Disables RAR test-extracting"
   echo "      -s Enables exe digital signature verification"
   echo "      -- Anything following this is considered a file/folder"
@@ -126,6 +128,7 @@ while [[ $1 == "-"* && ${#1} -gt 1 ]]; do
       h) usage;;
       i) check_innosetup=1;;
       I) check_innosetup=1; disable_extracting=true;;
+      r) unset maxdepth;;
       R) unset unraroption;;
       s) check_signatures=1;;
       *) echo "${0//*\/}: invalid option: '${1:i:1}'"; usage;;
@@ -290,7 +293,7 @@ innocheck() {
 
   # Display archive's filesize and checksum summary
   local -i filesize=0 filecount=0 sha1count=0 md5count=0
-  while read -a array; do
+  while read -r -a array; do
     # 0: file size, 1: checksum type, 2: checksum, 3: file name
     if [[ ${array[0]} == +([[:digit:]]) ]]; then
       ((filesize+=array[0]))
@@ -328,7 +331,7 @@ innocheck() {
       error "$1" "innoextract extraction"
       return
    else
-     echo -e "Test-extracting successful."
+     echo -e "Extraction successful."
    fi
  fi
 }
@@ -372,12 +375,12 @@ trap '{ echo " Script aborted."; scriptresult; }' SIGINT # Catch CTRL-C commands
 
 # Main loop: ------------------------------------------------------------------
 
+shopt -s nocasematch
 while [[ $1 != "" ]]; do
   if [[ -d "$1" ]]; then
-    for exe in "${1%/}/$exeprefix"*.exe; do
-      [[ -f "$exe" ]] || continue
+    while read -r -d $'\0' exe; do
       gogcheck "$exe"
-    done
+    done < <(find "$1" $maxdepth -iname "$exeprefix*.exe" -type f -print0 | sort -z)
   elif [[ -f "$1" ]] && [[ ${1##*/} == "$exeprefix"*.exe ]]; then
     gogcheck "$1"
   fi
