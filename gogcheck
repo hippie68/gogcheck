@@ -21,7 +21,7 @@
 # USER VARIABLES: #############################################################
 
 #debug=true # Enables appearing of debug messages
-color=true
+enable_colors=true
 
 # The variables "serials", "subjects", and "issuers" are optional lists
 # of known/trusted strings, which then appear colored in the signature verification.
@@ -60,7 +60,7 @@ issuers="
 /C=US/O=DigiCert Inc/OU=www.digicert.com/CN=DigiCert Assured ID CA-1
 "
 
-if [[ $color == "true" ]]; then
+if [[ $enable_colors == "true" ]]; then
   color_success='\033[1;92m'
   color_error='\033[91m'
   color_known='\033[32m'
@@ -89,7 +89,7 @@ exeprefix='setup_' # Overridden by command line option -F
 maxdepth="-maxdepth 1" # Standard value for main loop's "find" command, unless -r set
 unraroption='--gog' # Enables RAR test-extracting
 
-# Initialization: ------------------------------------------------------------
+# Initialization: -------------------------------------------------------------
 
 usage() {
   echo "Usage: ${0//*\/} [options] [file(s)/folder(s)]"
@@ -105,6 +105,8 @@ usage() {
   echo "    Options:"
   echo "      -b Enables bin files checksum verification"
   echo "      -B Same as -b, but disables checksum calculation"
+  echo "      -c Compact mode: all output but filenames and results is suppressed"
+  echo "      -C Disable colors"
   echo "      -F Forces checks on all exe files (not just setup_*.exe)"
   echo "      -h Displays this help"
   echo "      -i Enables Inno Setup checksum verification"
@@ -112,6 +114,8 @@ usage() {
   echo "      -r Traverses directories recursively"
   echo "      -R Disables RAR test-extracting"
   echo "      -s Enables exe digital signature verification"
+  echo "      -S Silent mode: all output is suppressed; only the 1st exe file is checked"
+  echo "         (Used for exit code checks)"
   echo "      -- Anything following this is considered a file/folder"
   echo
   exit 0
@@ -122,15 +126,18 @@ while [[ $1 == "-"* && ${#1} -gt 1 ]]; do
   if [[ $1 == "--" ]]; then shift; break; fi
   for ((i=1;i<${#1};i++)); do
     case ${1:i:1} in
-      b) check_binaries=1;;
-      B) check_binaries=1; disable_binchecksumcalculation=true;;
+      b) check_binaries=true;;
+      B) check_binaries=true; disable_binchecksumcalculation=true;;
+      c) compactmode=true;;
+      C) unset enable_colors;;
       F) unset exeprefix;;
       h) usage;;
-      i) check_innosetup=1;;
-      I) check_innosetup=1; disable_extracting=true;;
+      i) check_innosetup=true;;
+      I) check_innosetup=true; disable_extracting=true;;
       r) unset maxdepth;;
       R) unset unraroption;;
-      s) check_signatures=1;;
+      s) check_signatures=true;;
+      S) silentmode=true; exec &> /dev/null;;
       *) echo "${0//*\/}: invalid option: '${1:i:1}'"; usage;;
     esac
   done
@@ -141,15 +148,15 @@ done
 
 # If no check has been enabled, enable all checks
 if [[ $check_signatures$check_binaries$check_innosetup == "" ]]; then
-  check_signatures=1 check_binaries=1 check_innosetup=1
+  check_signatures=true check_binaries=true check_innosetup=true
 fi
 
 # Exit if selected, required binaries are not available
-[[ $check_signatures == 1 ]] &&  ! hash osslsigncode &> /dev/null && {
+[[ $check_signatures == true ]] &&  ! hash osslsigncode &> /dev/null && {
   echo "osslsigncode binary not found! Which is required to verify exe signatures."
   exit 1
 }
-[[ $check_innosetup == 1 ]] && ! hash innoextract &> /dev/null && {
+[[ $check_innosetup == true ]] && ! hash innoextract &> /dev/null && {
   echo "innoextract binary not found! Which is required to verify checksums of compressed files inside exe and bin files."
   echo "Download the latest version from https://constexpr.org/innoextract/"
   exit 1
@@ -336,17 +343,12 @@ innocheck() {
  fi
 }
 
-gogcheck() {
-  ((checkcount++))
-  echo -e "[$checkcount] ${color_file}$1${color_reset}"
-  if [[ $check_signatures == 1 ]]; then sigcheck "$1"; fi
-  if [[ $check_binaries == 1 ]]; then bincheck "$1"; fi
-  if [[ $check_innosetup == 1 ]]; then innocheck "$1"; fi
-  echo
-}
-
 scriptresult() {
   [[ $checkcount -eq 0 ]] && exit
+  if [[ $compactmode == true ]]; then
+    exec 1>&3; exec 2>&4
+    echo
+  fi
   if [[ $errorcount -eq 0 ]]; then
     echo -en "${color_success}"
   else
@@ -371,7 +373,43 @@ scriptresult() {
   fi
   exit 0
 }
-trap '{ echo " Script aborted."; scriptresult; }' SIGINT # Catch CTRL-C commands
+# Catch CTRL-C commands
+trap '{ [[ $compactmode == true ]] && { exec 1>&3; exec 2>&4; }; \
+  echo " Script aborted."; scriptresult; }' SIGINT
+
+gogcheck() {
+  local error="$errorcount" # Used in compact mode, see below
+
+  # Display currently checked exe file
+  ((checkcount++))
+  if [[ $compactmode == true ]]; then
+    echo -en "[$checkcount] $1 "
+    exec 3>&1; exec 4>&2
+    exec &> /dev/null
+  else
+    echo -e "[$checkcount] ${color_file}$1${color_reset}"
+  fi
+
+  # Run main checks on exe file
+  [[ $check_signatures == true ]] && sigcheck "$1"
+  [[ $check_binaries == true ]] && bincheck "$1"
+  [[ $check_innosetup == true ]] && innocheck "$1"
+
+  # Make sure only 1 exe file in total is checked in silent mode
+  [[ $silentmode == true ]] && scriptresult
+
+  # Display compact mode result
+  if [[ $compactmode == true ]]; then
+    exec 1>&3; exec 2>&4
+    if [[ $error -lt $errorcount ]]; then # asdf
+      echo -en "${color_error}Error${color_reset}"
+    else
+      echo -en "${color_success}OK${color_reset}"
+    fi
+  fi
+
+  echo
+}
 
 # Main loop: ------------------------------------------------------------------
 
