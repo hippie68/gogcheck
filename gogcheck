@@ -66,7 +66,8 @@ if [[ $enable_colors == "true" ]]; then
   color_known='\033[32m'
   color_file='\033[1;95m'
   color_reset='\033[0;39m'
-  color_debug='\033[90m'
+  color_debug1='\033[96m'
+  color_debug2='\033[90m'
   grep_color_success=${color_success:5:((${#color_success}-6))}
   grep_color_error=${color_error:5:((${#color_error}-6))}
   grep_color_known=${color_known:5:((${#color_known}-6))}
@@ -184,7 +185,11 @@ issuers=$(prepare_user_strings "$issuers")
 
 # FUNCTIONS: ##################################################################
 
-debugmessage() { [[ $debug == true ]] && echo -e "${color_debug}DEBUG MESSAGE: $1${color_reset}"; }
+debugmessage() {
+  if [[ $debug == true ]]; then
+    echo -e "${color_debug1}DEBUG MESSAGE: ${color_debug2}$1${color_reset}"
+  fi
+}
 
 # Used for logging errors; argument format: "filename" "reason"
 error() { ((errorcount++)); errorfiles+="[$checkcount] $1 ($2)"$'\n'; }
@@ -261,20 +266,22 @@ bincheck() {
   done
 
   # Compare the checksums
-  [[ $disable_binchecksumcalculation != true ]] && echo "Verifying bin files..."
   local -i bincount=0
+  [[ $disable_binchecksumcalculation != true ]] && echo "Verifying checksums..."
   for bin in "${1%.exe}"-*.bin; do
     ((bincount++))
     if [[ $disable_binchecksumcalculation != true ]]; then
-      echo -n "...${bin: -29} "
+      echo -n "${bin##*/} "
       checksum=$(md5sum "$bin")
       checksum=${checksum%  *}
+      echo -n "$checksum "
       if [[ $checksums == *"$checksum"* ]]; then
-        echo -e "$checksum ${color_success}OK${color_reset}"
+        echo -e "${color_success}OK${color_reset}"
       else
-        echo -e "$checksum ${color_error}Error${color_reset}"
+        echo -e "${color_error}Error${color_reset}"
         error "${bin##*/}" "wrong checksum"
       fi
+    else echo "${bin##*/}"
     fi
   done
 
