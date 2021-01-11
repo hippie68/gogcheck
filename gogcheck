@@ -17,11 +17,11 @@
 #
 # This script is considered work-in-progress and expected to have bugs.
 # Please report any issues at https://github.com/hippie68/gogcheck
-#
+
 # USER VARIABLES: #############################################################
 
-#debug=true # Enables appearing of debug messages
 enable_colors=true
+compactmode=false
 
 # The variables "serials", "subjects", and "issuers" are optional lists
 # of known/trusted strings, which then appear colored in the signature verification.
@@ -72,9 +72,7 @@ if [[ $enable_colors == "true" ]]; then
   grep_color_known=${color_known:5:((${#color_known}-6))}
 fi
 
-# SCRIPT STARTS BELOW: ########################################################
-
-# Global variables: -----------------------------------------------------------
+# INITIALIZATION: #############################################################
 
 # "okstrings" and "errorstrings" are used to highlight osslsigncode's results
 okstrings="Signature verification: ok"
@@ -88,8 +86,6 @@ checkcount=0 # Each exe file gets a unique number - used for tracking errors fas
 exeprefix='setup_' # Overridden by command line option -F
 maxdepth="-maxdepth 1" # Standard value for main loop's "find" command, unless -r set
 unraroption='--gog' # Enables RAR test-extracting
-
-# Initialization: -------------------------------------------------------------
 
 usage() {
   echo "Usage: ${0//*\/} [options] [file(s)/folder(s)]"
@@ -105,7 +101,7 @@ usage() {
   echo "    Options:"
   echo "      -b Enables bin files checksum verification"
   echo "      -B Same as -b, but disables checksum calculation"
-  echo "      -c Compact mode: all output but filenames and results is suppressed"
+  echo "   -c/-1 Compact mode: all output but filenames and results is suppressed"
   echo "      -C Disable colors"
   echo "      -F Forces checks on all exe files (not just setup_*.exe)"
   echo "      -h Displays this help"
@@ -128,8 +124,9 @@ while [[ $1 == "-"* && ${#1} -gt 1 ]]; do
     case ${1:i:1} in
       b) check_binaries=true;;
       B) check_binaries=true; disable_binchecksumcalculation=true;;
-      c) compactmode=true;;
+      c|1) compactmode=true;;
       C) unset enable_colors;;
+      D) debug=true;;
       F) unset exeprefix;;
       h) usage;;
       i) check_innosetup=true;;
@@ -185,7 +182,7 @@ serials=$(prepare_user_strings "$serials")
 subjects=$(prepare_user_strings "$subjects")
 issuers=$(prepare_user_strings "$issuers")
 
-# Functions: ------------------------------------------------------------------
+# FUNCTIONS: ##################################################################
 
 debugmessage() { [[ $debug == true ]] && echo -e "${color_debug}DEBUG MESSAGE: $1${color_reset}"; }
 
@@ -337,18 +334,14 @@ innocheck() {
       echo -e "${color_error}innoextract reported errors.${color_reset}"
       error "$1" "innoextract extraction"
       return
-   else
-     echo -e "Extraction successful."
-   fi
- fi
+    else
+      echo -e "Extraction successful."
+    fi
+  fi
 }
 
 scriptresult() {
-  [[ $checkcount -eq 0 ]] && exit
-  if [[ $compactmode == true ]]; then
-    exec 1>&3; exec 2>&4
-    echo
-  fi
+  [[ $checkcount -eq 0 ]] && exit 1
   if [[ $errorcount -eq 0 ]]; then
     echo -en "${color_success}"
   else
@@ -373,19 +366,20 @@ scriptresult() {
   fi
   exit 0
 }
+
 # Catch CTRL-C commands
 trap '{ [[ $compactmode == true ]] && { exec 1>&3; exec 2>&4; }; \
-  echo " Script aborted."; scriptresult; }' SIGINT
+  echo " Script aborted."; echo; scriptresult; }' SIGINT
 
 gogcheck() {
-  local error="$errorcount" # Used in compact mode, see below
+  local error="$errorcount" # Used in compact mode, see bottom
 
   # Display currently checked exe file
   ((checkcount++))
   if [[ $compactmode == true ]]; then
-    echo -en "[$checkcount] $1 "
-    exec 3>&1; exec 4>&2
-    exec &> /dev/null
+    echo -en "[$checkcount] ${1} "
+    exec 3>&1; exec 4>&2 # Save file descriptors 1 and 2 for later
+    exec &> /dev/null # Disable output in compact mode
   else
     echo -e "[$checkcount] ${color_file}$1${color_reset}"
   fi
@@ -400,8 +394,8 @@ gogcheck() {
 
   # Display compact mode result
   if [[ $compactmode == true ]]; then
-    exec 1>&3; exec 2>&4
-    if [[ $error -lt $errorcount ]]; then # asdf
+    exec 1>&3; exec 2>&4 # Re-enable output in compact mode
+    if [[ $error -lt $errorcount ]]; then
       echo -en "${color_error}Error${color_reset}"
     else
       echo -en "${color_success}OK${color_reset}"
@@ -411,7 +405,7 @@ gogcheck() {
   echo
 }
 
-# Main loop: ------------------------------------------------------------------
+# MAIN LOOP: ##################################################################
 
 shopt -s nocasematch
 while [[ $1 != "" ]]; do
@@ -424,5 +418,7 @@ while [[ $1 != "" ]]; do
   fi
   shift
 done
+
+[[ $compactmode == true ]]  && echo
 
 scriptresult
