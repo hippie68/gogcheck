@@ -12,7 +12,6 @@ Required programs:
 
 Optional:
 - unrar to let innoextract test RAR archives (https://www.rarlab.com/rar_add.htm)
-- sed for some minor visual text adjustments
 
 For Windows users: The script also works with the Windows Subsystem for Linux (WSL) on Windows 10  
 -> https://docs.microsoft.com/en-us/windows/wsl/
