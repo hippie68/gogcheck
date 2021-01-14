@@ -329,8 +329,8 @@ innocheck() {
   # Detect RAR archives
   if [[ -f "${1%.exe}"-1.bin ]]; then
     if [[ $(file "${1%.exe}"-1.bin) == *RAR* ]]; then
-      echo "Bin(s) are in RAR format (innoextract does not know contents' checksums)."
-      if [[ $unraroption != '--gog' ]]; then
+      echo "RAR format detected (innoextract does not know bin contents' checksums)."
+      if [[ $disable_extracting != true && $unraroption != '--gog' ]]; then
         echo "RAR extraction (--gog option) is disabled."
       fi
       ((rarcount++))
