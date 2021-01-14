@@ -60,14 +60,14 @@ issuers="
 /C=US/O=DigiCert Inc/OU=www.digicert.com/CN=DigiCert Assured ID CA-1
 "
 
-if [[ $enable_colors == "true" ]]; then
-  color_success='\033[1;92m'
-  color_error='\033[91m'
-  color_known='\033[32m'
-  color_file='\033[1;95m'
+if [[ $enable_colors == true ]]; then
+  color_success='\033[1;92m' # Bright green
+  color_error='\033[91m' # Red
+  color_known='\033[32m' # Green
+  color_file='\033[1;95m' # Bright purple
   color_reset='\033[0;39m'
-  color_debug1='\033[96m'
-  color_debug2='\033[90m'
+  color_debug1='\033[96m' # Cyan
+  color_debug2='\033[90m' # Dark gray
   grep_color_success=${color_success:5:((${#color_success}-6))}
   grep_color_error=${color_error:5:((${#color_error}-6))}
   grep_color_known=${color_known:5:((${#color_known}-6))}
@@ -76,8 +76,8 @@ fi
 # INITIALIZATION: #############################################################
 
 # "okstrings" and "errorstrings" are used to highlight osslsigncode's results
-okstrings="Signature verification: ok"
-errorstrings="MISMATCH!!!!|MISMATCH!!!|MISMATCH|failed|Failed|No signature found."
+okstrings='Signature verification: ok'
+errorstrings='MISMATCH!!!!|MISMATCH!!!|MISMATCH|failed|Failed|No signature found.'
 
 rarcount=0 # Global number of RAR archives encountered by innocheck()
 rarfiles="" # List of bins that are identified as RAR archives
@@ -85,36 +85,37 @@ errorcount=0 # Global count of errors or unexpected results
 errorfiles="" # List of files that produced errors
 checkcount=0 # Each exe file gets a unique number - used for tracking errors faster
 exeprefix='setup_' # Overridden by command line option -F
-maxdepth="-maxdepth 1" # Standard value for main loop's "find" command, unless -r set
+maxdepth='-maxdepth 1' # Standard value for main loop's "find" command, unless -r set
 unraroption='--gog' # Enables RAR test-extracting
 
 usage() {
-  echo "Usage: ${0//*\/} [options] [file(s)/folder(s)]"
-  echo "Checks your GOG offline installer collection for valid digital signatures and correct checksums, making sure the files are legit and have not been tempered with."
-  echo "If no files or folders are specified, the current directory will be used."
-  echo "If neither the -s, -b, nor -i option is used, all checks will be run."
-  echo
-  echo "  The checks consist of 3 parts:"
-  echo "    1. Digital signature verification for exe files"
-  echo "    2. Bin file checksum verification"
-  echo "    3. Inno Setup file checksum verification (actual game files packed inside exe and bin files)"
-  echo
-  echo "    Options:"
-  echo "      -b Enables bin files checksum verification"
-  echo "      -B Same as -b, but disables checksum calculation"
-  echo "   -c/-1 Compact mode: all output but filenames and results is suppressed"
-  echo "      -C Disable colors"
-  echo "      -F Forces checks on all exe files (not just setup_*.exe)"
-  echo "      -h Displays this help"
-  echo "      -i Enables Inno Setup checksum verification"
-  echo "      -I Same as -i, but disables test-extracting"
-  echo "      -r Traverses directories recursively"
-  echo "      -R Disables RAR test-extracting"
-  echo "      -s Enables exe digital signature verification"
-  echo "      -S Silent mode: all output is suppressed; only the 1st exe file is checked"
-  echo "         (Used for exit code checks)"
-  echo "      -- Anything following this is considered a file/folder"
-  echo
+  echo "Usage: ${0//*\/} [options] [file/folder ...]
+
+Checks your GOG offline installer collection for valid digital signatures and correct checksums, making sure the files are legit and have not been tempered with.
+If no files or folders are specified, the current directory will be used.
+If neither the -s, -b/-B, nor -i/-I option is used, all checks will be run.
+
+The checks consist of 3 parts:
+  1. Digital signature verification for exe files
+  2. Bin file checksum verification
+  3. Inno Setup file checksum verification (actual game files packed inside exe and bin files)
+
+Options:
+  -b Enables bin files check
+  -B Same as -b, but disables checksum calculation
+  -c/-1 Compact mode: all output but filenames and results is suppressed
+  -C Disable colors
+  -F Forces checks on all exe files (not just setup_*.exe)
+  -h Displays this help
+  -i Enables Inno Setup check
+  -I Same as -i, but disables test-extracting
+  -r Traverses directories recursively
+  -R Disables RAR test-extracting
+  -s Enables exe digital signature verification
+  -S Silent mode: all output is suppressed; only the 1st exe file is checked
+     (Used for exit code checks)
+  -- Anything following this is considered a file/folder
+"
   exit 0
 }
 
@@ -150,22 +151,25 @@ if [[ $check_signatures$check_binaries$check_innosetup == "" ]]; then
 fi
 
 # Exit if selected, required binaries are not available
-[[ $check_signatures == true ]] &&  ! hash osslsigncode &> /dev/null && {
+[[ $check_signatures == true ]] && ! hash osslsigncode &> /dev/null && {
   echo "osslsigncode binary not found! Which is required to verify exe signatures."
+  echo "Download the latest version from https://github.com/mtrojnar/osslsigncode"
   exit 1
 }
 [[ $check_innosetup == true ]] && ! hash innoextract &> /dev/null && {
   echo "innoextract binary not found! Which is required to verify checksums of compressed files inside exe and bin files."
-  echo "Download the latest version from https://constexpr.org/innoextract/"
+  echo "Download the latest version from https://constexpr.org/innoextract"
   exit 1
 }
 
 hash sed &> /dev/null && sedfound=true # Enable optional sed if present
 
 # Disable unrar if not available
-if [[ -z ${unraroption+x} ]] && ! hash unrar &> /dev/null && ! hash unar &> /dev/null; then
+if [[ ! -z ${unraroption+x} && $check_innosetup == true && ! $disable_extracting == true ]] \
+&& ! hash unrar &> /dev/null && ! hash unar &> /dev/null; then
   unset unraroption
   echo "unrar/unar binary not found - RAR extraction has been disabled."
+  echo "Download the latest UnRAR version from https://www.rarlab.com/rar_add.htm"
 fi
 
 # Escapes all regexp metacharacters in user strings for use with grep
@@ -281,7 +285,7 @@ bincheck() {
         echo -e "${color_error}Error${color_reset}"
         error "${bin##*/}" "wrong checksum"
       fi
-    else echo "${bin##*/}"
+    else echo "Found bin file: ${bin##*/}"
     fi
   done
 
@@ -294,7 +298,6 @@ bincheck() {
 
 innocheck() {
   echo "Running innoextract check..."
-
   # Abort if exe is not an Inno Setup installer
   if ! innoextract --info "$1" > /dev/null; then
     echo -e "${color_error}innoextract reported errors while probing the file.${color_reset}"
@@ -315,7 +318,8 @@ innocheck() {
       MD5) ((md5count++));;
     esac
   done < <(innoextract --list-sizes --list-checksums --silent "$1" 2> /dev/null)
-  echo "$filecount files ($((filesize/1024/1024)) MiB)"
+  filesize=$((100*filesize/1024/1024))
+  echo "$filecount files (${filesize%??}.${filesize: -2} MiB)" # Floating-point hack
   echo "$((sha1count + md5count)) checksums ($sha1count SHA-1, $md5count MD5)"
   if [[ ! $filecount -eq $((sha1count + md5count)) ]]; then
     echo "${color_error}Warning: Numbers of files and checksums differ.${color_reset}"
@@ -361,13 +365,15 @@ scriptresult() {
   fi
   echo
   if [[ $rarcount -gt 0 ]]; then
-    echo "Files with RAR archive bins:"
-    echo "----------------------------"
+    if [[ $unraroption == "" ]]; then
+      echo "Files with (untested) RAR archive bins:"
+    else
+      echo "Files with RAR archive bins:"
+    fi
     echo "$rarfiles"
   fi
   if [[ $errorcount -gt 0 ]]; then
     echo "Files that produced errors:"
-    echo "---------------------------"
     echo -e "${color_error}$errorfiles${color_reset}"
     exit 1
   fi
@@ -375,7 +381,7 @@ scriptresult() {
 }
 
 # Catch CTRL-C commands
-trap '{ [[ $compactmode == true ]] && { exec 1>&3; exec 2>&4; }; \
+trap '{ [[ $compactmode == true ]] && { exec 1>&3; exec 2>&4; }
   echo " Script aborted."; echo; scriptresult; }' SIGINT
 
 gogcheck() {
@@ -417,7 +423,7 @@ gogcheck() {
 shopt -s nocasematch
 while [[ $1 != "" ]]; do
   if [[ -d "$1" ]]; then
-    while read -r -d $'\0' exe; do
+    while IFS= read -r -d $'\0' exe; do
       gogcheck "$exe"
     done < <(find "$1" $maxdepth -iname "$exeprefix*.exe" -type f -print0 | sort -z)
   elif [[ -f "$1" ]] && [[ ${1##*/} == "$exeprefix"*.exe ]]; then
@@ -426,6 +432,6 @@ while [[ $1 != "" ]]; do
   shift
 done
 
-[[ $compactmode == true ]]  && echo
+[[ $compactmode == true ]] && echo
 
 scriptresult
