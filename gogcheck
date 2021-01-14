@@ -11,7 +11,6 @@
 #
 # Optional:
 #   - unrar/unar to test-extract RAR archives
-#   - sed for minor additional output formatting
 #
 # If errors have been encountered, the scripts exits with exit code 1.
 #
@@ -124,20 +123,20 @@ while [[ $1 == "-"* && ${#1} -gt 1 ]]; do
   if [[ $1 == "--" ]]; then shift; break; fi
   for ((i=1;i<${#1};i++)); do
     case ${1:i:1} in
-      b) check_binaries=true;;
-      B) check_binaries=true; disable_binchecksumcalculation=true;;
-      c|1) compactmode=true;;
-      C) unset enable_colors;;
-      D) debug=true;;
-      F) unset exeprefix;;
-      h) usage;;
-      i) check_innosetup=true;;
-      I) check_innosetup=true; disable_extracting=true;;
-      r) unset maxdepth;;
-      R) unset unraroption;;
-      s) check_signatures=true;;
-      S) silentmode=true; exec &> /dev/null;;
-      *) echo "${0//*\/}: invalid option: '${1:i:1}'"; usage;;
+      b) check_binaries=true ;;
+      B) check_binaries=true; disable_binchecksumcalculation=true ;;
+      c|1) compactmode=true ;;
+      C) unset enable_colors ;;
+      D) debug=true ;;
+      F) unset exeprefix ;;
+      h) usage ;;
+      i) check_innosetup=true ;;
+      I) check_innosetup=true; disable_extracting=true ;;
+      r) unset maxdepth ;;
+      R) unset unraroption ;;
+      s) check_signatures=true ;;
+      S) silentmode=true; exec &> /dev/null ;;
+      *) echo "${0//*\/}: invalid option: '${1:i:1}'"; usage ;;
     esac
   done
   shift
@@ -162,11 +161,8 @@ fi
   exit 1
 }
 
-hash sed &> /dev/null && sedfound=true # Enable optional sed if present
-
 # Disable unrar if not available
-if [[ ! -z ${unraroption+x} && $check_innosetup == true && ! $disable_extracting == true ]] \
-&& ! hash unrar &> /dev/null && ! hash unar &> /dev/null; then
+if [[ ! -z ${unraroption+x} && $check_innosetup == true && ! $disable_extracting == true ]] && ! hash unrar &> /dev/null && ! hash unar &> /dev/null; then
   unset unraroption
   echo "unrar/unar binary not found - RAR extraction has been disabled."
   echo "Download the latest UnRAR version from https://www.rarlab.com/rar_add.htm"
@@ -202,17 +198,26 @@ sigcheck() {
   echo "Running signature check..."
   result=$(osslsigncode verify "$1" 2>&1)
   returncode=$?
-  # sed removes whitespace and empty lines to save space, and it removes the misleading
-  # "Succeeded" message that osslsigncode creates even when there's an (perceived) error.
+  # Highlight known user strings; remove leading whitespace, empty lines, the
+  # misleading "Succeeded" message that osslsigncode creates even when there's
+  # a (perceived) error, and separating lines:
   echo "$result" \
-     | GREP_COLOR=$grep_color_known grep --color=always -E "$serials|$subjects|$issuers|$" \
-     | GREP_COLOR=$grep_color_error grep --color=always -E "$errorstrings|$" \
-     | GREP_COLOR=$grep_color_success grep --color=always -E "$okstrings|$" \
-     | if [[ $sedfound == true ]]; then sed -e 's/^\s\+//' -e '/^$/d' -e '/^Succeeded$/d' -e '/^------------------/d'; else cat; fi
-  if [[ $returncode != 0 || $(echo "$result" | grep -o 'No signature found.') != '' ]]; then
+    | GREP_COLOR=$grep_color_known grep --color=always -E "$serials|$subjects|$issuers|$" \
+    | GREP_COLOR=$grep_color_error grep --color=always -E "$errorstrings|$" \
+    | GREP_COLOR=$grep_color_success grep --color=always -E "$okstrings|$" \
+    | {
+        while read -r s; do
+          if [[ $s != "" && $s != "Succeeded" && $s != "------------------" ]]; then
+            echo "$s"
+          fi
+        done
+      }
+  if [[ $returncode != 0 \
+       || $(echo "$result" | grep -o 'No signature found.') != '' ]]; then
     error "$1" "digital signature"
   fi
 }
+
 
 bincheck() {
   echo "Running bin check..."
