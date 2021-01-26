@@ -59,7 +59,7 @@ issuers="
 /C=US/O=DigiCert Inc/OU=www.digicert.com/CN=DigiCert Assured ID CA-1
 "
 
-if [[ $enable_colors == true ]]; then
+set_colors() {
   color_success='\033[1;92m' # Bright green
   color_error='\033[91m' # Red
   color_known='\033[32m' # Green
@@ -70,7 +70,8 @@ if [[ $enable_colors == true ]]; then
   grep_color_success=${color_success:5:((${#color_success}-6))}
   grep_color_error=${color_error:5:((${#color_error}-6))}
   grep_color_known=${color_known:5:((${#color_known}-6))}
-fi
+  grep_color_option='--color=always'
+}
 
 # INITIALIZATION: #############################################################
 
@@ -168,6 +169,9 @@ if [[ ! -z ${unraroption+x} && $check_innosetup == true && ! $disable_extracting
   echo "Download the latest UnRAR version from https://www.rarlab.com/rar_add.htm"
 fi
 
+# Enable colors
+[[ $enable_colors == true ]] && set_colors
+
 # Escapes all regexp metacharacters in user strings for use with grep
 prepare_user_strings() {
   IFS=$'\n'
@@ -202,9 +206,9 @@ sigcheck() {
   # misleading "Succeeded" message that osslsigncode creates even when there's
   # a (perceived) error, and separating lines:
   echo "$result" \
-    | GREP_COLOR=$grep_color_known grep --color=always -E "$serials|$subjects|$issuers|$" \
-    | GREP_COLOR=$grep_color_error grep --color=always -E "$errorstrings|$" \
-    | GREP_COLOR=$grep_color_success grep --color=always -E "$okstrings|$" \
+    | GREP_COLOR=$grep_color_known grep $grep_color_option -E "$serials|$subjects|$issuers|$" \
+    | GREP_COLOR=$grep_color_error grep $grep_color_option -E "$errorstrings|$" \
+    | GREP_COLOR=$grep_color_success grep $grep_color_option -E "$okstrings|$" \
     | {
         while read -r s; do
           if [[ $s != "" && $s != "Succeeded" && $s != "------------------" ]]; then
