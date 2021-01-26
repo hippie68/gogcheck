@@ -30,4 +30,4 @@ It means the string that went green is known to the script. The latter which con
 
 Is RAR support required?
 
-As innoextract does not know checksums for files stored inside RAR bin files (as opposed to Inno Setup bin files), the verification chain "valid .exe digital signature -> verified .bin checksums -> verified .bin archive contents" is broken at the final stage. You can still use unrar to check for regular CRC errors.
+As innoextract does not know checksums for files stored inside RAR bin files (as opposed to Inno Setup bin files), the verification chain "valid .exe digital signature -> verified .bin checksums -> verified .bin archive contents" is broken at the final stage. You can still let innoextract use unrar/unar to check for regular CRC errors.
