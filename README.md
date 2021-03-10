@@ -8,7 +8,8 @@ The script consists of 3 functions, which run in this order:
 
 Required programs:
 - osslsigncode (https://github.com/mtrojnar/osslsigncode)
-- innoextract (https://github.com/dscharrer/innoextract)
+- innoextract (https://github.com/dscharrer/innoextract)  
+On Debian-based distros, both can be installed via `apt install osslsigncode innoextract`.
 
 Optional:
 - unrar to let innoextract test RAR archives (https://www.rarlab.com/rar_add.htm)
