@@ -8,7 +8,7 @@ The script consists of 3 functions, which run in this order:
 
 Required programs:
 - osslsigncode (https://github.com/mtrojnar/osslsigncode)
-- innoextract (https://github.com/dscharrer/innoextract)  
+- innoextract (https://github.com/dscharrer/innoextract)
 On Debian-based distros, both can be installed via `apt install osslsigncode innoextract`.
 
 Optional:
