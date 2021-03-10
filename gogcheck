@@ -268,7 +268,7 @@ bincheck() {
       echo -e "${color_error}Unresolved dilemma, aborting.${color_reset}"
       error "$1" "bin files exist that shouldn't"
     else
-      echo "Which seems true, as no matching bin files have been found."
+      echo "No matching bin files found."
     fi
     return
   fi
