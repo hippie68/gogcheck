@@ -22,6 +22,10 @@
 enable_colors=true
 compactmode=false
 
+# You may need to specify a Certificate Authority (CA) file for osslsigncode. On
+# Debian, for example, it is "/etc/ssl/certs/ca-certificates.crt".
+certfile=/etc/ssl/certs/ca-certificates.crt
+
 # The variables "serials", "subjects", and "issuers" are optional lists
 # of known/trusted strings, which then appear colored in the signature verification.
 # For "serials" and "subjects", first block is GOG, then DigiCert each.
@@ -76,7 +80,7 @@ set_colors() {
 # INITIALIZATION: #############################################################
 
 # "okstrings" and "errorstrings" are used to highlight osslsigncode's results
-okstrings='Signature verification: ok'
+okstrings='Signature verification: ok|Timestamp Server Signature verification: ok'
 errorstrings='MISMATCH!!!!|MISMATCH!!!|MISMATCH|failed|Failed|No signature found.'
 
 rarcount=0 # Global number of RAR archives encountered by innocheck()
@@ -89,10 +93,10 @@ maxdepth='-maxdepth 1' # Standard value for main loop's "find" command, unless -
 unraroption='--gog' # Enables RAR test-extracting
 
 usage() {
-  echo "Usage: ${0//*\/} [options] [file/folder ...]
+  echo "Usage: ${0//*\/} [options] [file/directory ...]
 
 Checks your GOG offline installer collection for valid digital signatures and correct checksums, making sure the files are legit and have not been tempered with.
-If no files or folders are specified, the current directory will be used.
+If no files or directories are specified, the current directory will be used.
 If neither the -s, -b/-B, nor -i/-I option is used, all checks will be run.
 
 The checks consist of 3 parts:
@@ -101,20 +105,21 @@ The checks consist of 3 parts:
   3. Inno Setup file checksum verification (actual game files packed inside exe and bin files)
 
 Options:
-  -b Enables bin files check
-  -B Same as -b, but disables checksum calculation
-  -c/-1 Compact mode: all output but filenames and results is suppressed
-  -C Disable colors
-  -F Forces checks on all exe files (not just setup_*.exe)
-  -h Displays this help
-  -i Enables Inno Setup check
-  -I Same as -i, but disables test-extracting
-  -r Traverses directories recursively
-  -R Disables RAR test-extracting
-  -s Enables exe digital signature verification
-  -S Silent mode: all output is suppressed; only the 1st exe file is checked
-     (Used for exit code checks)
-  -- Anything following this is considered a file/folder
+  -b  Enable bin files check
+  -B  Same as -b, but disable checksum calculation
+  -c  Compact mode: all output but filenames and results is suppressed
+  -1  Same as -c
+  -C  Disable colors
+  -F  Force checks on all exe files (not just setup_*.exe)
+  -h  Display this help
+  -i  Enable Inno Setup check
+  -I  Same as -i, but disable test-extracting
+  -r  Traverse directories recursively
+  -R  Disable RAR test-extracting
+  -s  Enable exe digital signature verification
+  -S  Silent mode: all output is suppressed; only the 1st exe file is checked
+      (Used for exit code checks)
+  --  Anything following this is considered a file/directory
 "
   exit 0
 }
@@ -169,6 +174,13 @@ if [[ ! -z ${unraroption+x} && $check_innosetup == true && ! $disable_extracting
   echo "Download the latest UnRAR version from https://www.rarlab.com/rar_add.htm"
 fi
 
+# Check osslsigncode version
+osslsigncode_version=$(osslsigncode -v 2> /dev/null \
+  | grep -Po 'osslsigncode \K[^,]*(?=,)')
+if [[ ${osslsigncode_version//./} -ge 210 ]]; then
+  osslsigncode_options="-CAfile $certfile -untrusted $certfile"
+fi
+
 # Enable colors
 [[ $enable_colors == true ]] && set_colors
 
@@ -200,7 +212,7 @@ error() { ((errorcount++)); errorfiles+="[$checkcount] $1 ($2)"$'\n'; }
 
 sigcheck() {
   echo "Running signature check..."
-  result=$(osslsigncode verify "$1" 2>&1)
+  result=$(osslsigncode verify $osslsigncode_options "$1" 2>&1)
   returncode=$?
   # Highlight known user strings; remove leading whitespace, empty lines, the
   # misleading "Succeeded" message that osslsigncode creates even when there's
@@ -210,7 +222,7 @@ sigcheck() {
     | GREP_COLOR=$grep_color_error grep $grep_color_option -E "$errorstrings|$" \
     | GREP_COLOR=$grep_color_success grep $grep_color_option -E "$okstrings|$" \
     | {
-        while read -r s; do
+        while read -r s; do # read without IFS= removes whitespace
           if [[ $s != "" && $s != "Succeeded" && $s != "------------------" ]]; then
             echo "$s"
           fi
@@ -221,7 +233,6 @@ sigcheck() {
     error "$1" "digital signature"
   fi
 }
-
 
 bincheck() {
   echo "Running bin check..."
