@@ -6,6 +6,47 @@ The script consists of 3 functions, which run in this order:
 2. bincheck: checks if .bin files' checksums (which the .exe contains) are valid (only means something if sigcheck succeeds)
 3. innocheck: test-extracts game files from both .exe and .bin files and verifies their checksums (sometimes which the .exe contains)
 
+Sample output:
+```$ gogcheck setup_a_corrupted_game.exe 
+[1] setup_a_corrupted_game.exe
+Running signature check...
+Current PE checksum   : 0E22C4AF
+Calculated PE checksum: 0E22C4DF    MISMATCH!!!
+Signature Index: 0  (Primary Signature)
+Message digest algorithm  : SHA1
+Current message digest    : C421540390F3ACE7D031A4D54F0E5CA539D866AD
+Calculated message digest : EEF389073A91EE3470FCC7B5EE0CCDFF7A54BD22    MISMATCH!!!
+Signature verification: failed
+Number of verified signatures: 1
+Failed
+Running bin check...
+Exe file claims not to have bin files.
+No matching bin files found.
+Running innoextract check...
+117 files (404.23 MiB)
+117 checksums (105 SHA-1, 12 MD5)
+Test-extracting files...
+Extraction successful.
+
+1 file checked, 1 error
+
+Files that produced errors:
+[1] setup_a_corrupted_game.exe (digital signature)
+```
+
+Sample output (compact mode):
+```$ gogcheck -1
+[1] ./setup_a_corrupted_game.exe Error
+[2] ./setup_ftl_advanced_edition_1.6.13b_(36400).exe OK
+[3] ./setup_terraria_v1.4.1.2_(42619).exe OK
+[4] ./setup_the_witcher_adventure_game_1.2.5a_(12082).exe OK
+
+4 files checked, 1 error
+
+Files that produced errors:
+[1] ./setup_a_corrupted_game.exe (digital signature)
+```
+
 Required programs:
 - osslsigncode (https://github.com/mtrojnar/osslsigncode)
 - innoextract (https://github.com/dscharrer/innoextract)
