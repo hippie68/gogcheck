@@ -7,7 +7,8 @@ The script consists of 3 functions, which run in this order:
 3. innocheck: test-extracts game files from both .exe and .bin files and verifies their checksums (sometimes which the .exe contains)
 
 Sample output:
-```$ gogcheck setup_a_corrupted_game.exe 
+```
+$ gogcheck setup_a_corrupted_game.exe 
 [1] setup_a_corrupted_game.exe
 Running signature check...
 Current PE checksum   : 0E22C4AF
@@ -35,7 +36,8 @@ Files that produced errors:
 ```
 
 Sample output (compact mode):
-```$ gogcheck -1
+```
+$ gogcheck -1
 [1] ./setup_a_corrupted_game.exe Error
 [2] ./setup_ftl_advanced_edition_1.6.13b_(36400).exe OK
 [3] ./setup_terraria_v1.4.1.2_(42619).exe OK
