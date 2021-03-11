@@ -1,5 +1,26 @@
 Bash script for the purpose of scanning your GOG offline installer collection for valid digital signatures and correct checksums, making sure your downloads have not been modified by someone else.
+
+Usage: `gogcheck [options] [file/directory ...]`
 The script accepts multiple .exe files and folders as arguments. No arguments: check the current folder. Type "gogcheck -h" to list available options.
+
+Options:
+```
+  -b  Enable bin files check
+  -B  Same as -b, but disable checksum calculation
+  -c  Compact mode: all output but filenames and results is suppressed
+  -1  Same as -c
+  -C  Disable colors
+  -f  Force checks on all exe files (not just setup_*.exe)
+  -h  Display this help
+  -i  Enable Inno Setup check
+  -I  Same as -i, but disable test-extracting
+  -r  Traverse directories recursively
+  -R  Disable RAR test-extracting
+  -s  Enable exe digital signature verification
+  -S  Silent mode: all output is suppressed; only the 1st exe file is checked
+      (Used for exit code checks)
+  --  Anything following this is considered a file/directory
+```
 
 The script consists of 3 functions, which run in this order:
 1. sigcheck: checks .exe files for valid digital signatures
