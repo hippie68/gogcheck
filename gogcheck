@@ -223,7 +223,9 @@ sigcheck() {
     | GREP_COLOR=$grep_color_success grep $grep_color_option -E "$okstrings|$" \
     | {
         while read -r s; do # read without IFS= removes whitespace
-          if [[ $s != "" && $s != "Succeeded" && $s != "------------------" ]]; then
+          if [[ $s != "" && $s != "Succeeded" && $s != "------------------" \
+            && ! $s =~ ^(Certificate expiration date:$|notBefore.*|notAfter.*|CAfile:.*|TSA\'s certificates file:.*|CRL distribution point:.*|TSA\'s CRL distribution point:.*) ]]
+          then
             echo "$s"
           fi
         done
