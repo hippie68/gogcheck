@@ -67,6 +67,7 @@ set_colors() {
   color_success='\033[1;92m' # Bright green
   color_error='\033[91m' # Red
   color_known='\033[32m' # Green
+  color_unknown='\033[33m' # Yellow
   color_file='\033[1;95m' # Bright purple
   color_reset='\033[0;39m'
   color_debug1='\033[96m' # Cyan
@@ -74,7 +75,7 @@ set_colors() {
   grep_color_success=${color_success:5:((${#color_success}-6))}
   grep_color_error=${color_error:5:((${#color_error}-6))}
   grep_color_known=${color_known:5:((${#color_known}-6))}
-  grep_color_option='--color=always'
+  grep_color_unknown=${color_unknown:5:((${#color_unknown}-6))}
 }
 
 # INITIALIZATION: #############################################################
@@ -211,33 +212,60 @@ debugmessage() {
 error() { ((errorcount++)); errorfiles+="[$checkcount] $1 ($2)"$'\n'; }
 
 sigcheck() {
-  echo "Running signature check..."
-  result=$(osslsigncode verify $osslsigncode_options "$1" 2>&1)
+  echo -e "Running signature check..."
+  local output
+  output=$(osslsigncode verify $osslsigncode_options "$1" 2>&1)
   returncode=$?
-  # Highlight known user strings; remove leading whitespace, empty lines, the
-  # misleading "Succeeded" message that osslsigncode creates even when there's
-  # a (perceived) error, and separating lines:
-  echo "$result" \
-    | GREP_COLOR=$grep_color_known grep $grep_color_option -E "$serials|$subjects|$issuers|$" \
-    | GREP_COLOR=$grep_color_error grep $grep_color_option -E "$errorstrings|$" \
-    | GREP_COLOR=$grep_color_success grep $grep_color_option -E "$okstrings|$" \
-    | {
-        while read -r s; do # read without IFS= removes whitespace
-          if [[ $s != "" && $s != "Succeeded" && $s != "------------------" \
-            && ! $s =~ ^(Certificate expiration date:$|notBefore.*|notAfter.*|CAfile:.*|TSA\'s certificates file:.*|CRL distribution point:.*|TSA\'s CRL distribution point:.*) ]]
-          then
-            echo "$s"
-          fi
-        done
-      }
-  if [[ $returncode != 0 \
-       || $(echo "$result" | grep -o 'No signature found.') != '' ]]; then
-    error "$1" "digital signature"
+
+  # Adjust osslsigncode's output
+  output=${output//$'\t'} # Remove all tabs
+  echo "$output" \
+    | GREP_COLOR=$grep_color_unknown grep --color=always \
+        -P '(Subject:|Issuer :|Serial :|$)\K.*' \
+    | GREP_COLOR=$grep_color_known grep --color=always \
+        -E "$serials|$subjects|$issuers|$" \
+    | GREP_COLOR=$grep_color_error grep --color=always -E "$errorstrings|$" \
+    | GREP_COLOR=$grep_color_success grep --color=always -E "$okstrings|$" \
+    | grep --invert-match -E -e '^$' -e '^Succeeded' -e '^------------------' \
+        -e "^(Certificate expiration date:$|notBefore.*|notAfter.*|CAfile:.*|TSA's certificates file:.*|CRL distribution point:.*|TSA's CRL distribution point:.*)"
+
+  # Adjust osslsigncode's output (pure Bash alternative)
+#  echo "$output" \
+#    | while read -r line; do # read without "IFS=" removes leading whitespace
+#        # Mark known/unknown strings
+#        if [[ $line =~ ^(Subject:|Issuer :|Serial :).* ]]; then
+#          if [[ $line =~ .*($serials|$subjects|$issuers).* ]]; then
+#            echo -e "${line%%:*}:${color_known}${line#*:}${color_reset}"
+#          else
+#            echo -e "${line%%:*}:${color_unknown}${line#*:}${color_reset}"
+#          fi
+#        # Mark errors
+#        elif [[ $line =~ .*($errorstrings).* ]]; then
+#          echo -e "${color_error}$line${color_reset}"
+#        # Mark success
+#        elif [[ $line =~ ($okstrings).* ]]; then
+#          echo -e "${color_success}$line${color_reset}"
+#        # Remove osslsigncode clutter
+#        elif [[ $line != "" && $line != "Succeeded" && $line != "------------------" \
+#            && ! $line =~ ^(Certificate expiration date:$|notBefore.*|notAfter.*|CAfile:.*|TSA\'s certificates file:.*|CRL distribution point:.*|TSA\'s CRL distribution point:.*) ]]
+#        then
+#          echo "$line"
+#        fi
+#      done
+
+  # Error handling
+  # osslsigncode 2.0.0 and older: "No signature found."
+  # osslsigncode 2.1.0: "No signature found"
+  # Note: osslsigncode 2.0.0 and older exit with 0 even when no signature found
+  if [[ $output == *"No signature found"* ]]; then
+    error "$1" "no digital signature found"
+  elif [[ $returncode != 0 ]]; then
+    error "$1" "digital signature error"
   fi
 }
 
 bincheck() {
-  echo "Running bin check..."
+  echo -e "Running bin check..."
   local crcstring
   crcstring=$(tac "$1" | grep -a -m 1 -i -o '[[:alnum:]]*#GOGCRCSTRING')
   debugmessage "Raw GOGCRCSTRING: $crcstring"
@@ -319,7 +347,7 @@ bincheck() {
 }
 
 innocheck() {
-  echo "Running innoextract check..."
+  echo -e "Running innoextract check..."
   # Abort if exe is not an Inno Setup installer
   if ! innoextract --info "$1" > /dev/null; then
     echo -e "${color_error}innoextract reported errors while probing the file.${color_reset}"
@@ -351,7 +379,7 @@ innocheck() {
   # Detect RAR archives
   if [[ -f "${1%.exe}"-1.bin ]]; then
     if [[ $(file "${1%.exe}"-1.bin) == *RAR* ]]; then
-      echo "RAR format detected (innoextract does not know bin contents' checksums)."
+      echo -e "${color_unknown}RAR format detected${color_reset} (innoextract does not know bin contents' checksums)."
       if [[ $disable_extracting != true && $unraroption != '--gog' ]]; then
         echo "RAR extraction (--gog option) is disabled."
       fi
