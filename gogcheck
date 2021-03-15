@@ -26,11 +26,26 @@ compactmode=false
 # Debian, for example, it is "/etc/ssl/certs/ca-certificates.crt".
 certfile=/etc/ssl/certs/ca-certificates.crt
 
-# The variables "serials", "subjects", and "issuers" are optional lists
+# The variables "subjects", "issuers", and "serials" are optional lists
 # of known/trusted strings, which then appear colored in the signature verification.
-# For "serials" and "subjects", first block is GOG, then DigiCert each.
+# For "subjects" and "serials", first block is GOG, then DigiCert each.
 # It is not a complete collection, and future game releases might come with new strings.
 # Use this section to include additional strings seen in your known-legit files.
+
+subjects="
+/C=PL/L=Warsaw/O=GOG Sp. z o.o./CN=GOG Sp. z o.o.
+/C=CY/L=Larnaca/O=GOG Limited/CN=GOG Limited
+/C=CY/L=Nicosia/O=GOG Limited/CN=GOG Limited
+
+/C=US/O=DigiCert/CN=DigiCert Timestamp Responder
+/C=US/O=DigiCert Inc/OU=www.digicert.com/CN=DigiCert Assured ID Code Signing CA-1
+"
+
+issuers="
+/C=US/O=DigiCert Inc/OU=www.digicert.com/CN=DigiCert SHA2 Assured ID Code Signing CA
+/C=US/O=DigiCert Inc/OU=www.digicert.com/CN=DigiCert Assured ID Root CA
+/C=US/O=DigiCert Inc/OU=www.digicert.com/CN=DigiCert Assured ID CA-1
+"
 
 serials="
 06F56DD38538018E9A31248796E640AB
@@ -48,41 +63,23 @@ serials="
 039FEDEDCB795B8DED320C8919F03689
 "
 
-subjects="
-/C=PL/L=Warsaw/O=GOG Sp. z o.o./CN=GOG Sp. z o.o.
-/C=CY/L=Larnaca/O=GOG Limited/CN=GOG Limited
-/C=CY/L=Nicosia/O=GOG Limited/CN=GOG Limited
-
-/C=US/O=DigiCert/CN=DigiCert Timestamp Responder
-/C=US/O=DigiCert Inc/OU=www.digicert.com/CN=DigiCert Assured ID Code Signing CA-1
-"
-
-issuers="
-/C=US/O=DigiCert Inc/OU=www.digicert.com/CN=DigiCert SHA2 Assured ID Code Signing CA
-/C=US/O=DigiCert Inc/OU=www.digicert.com/CN=DigiCert Assured ID Root CA
-/C=US/O=DigiCert Inc/OU=www.digicert.com/CN=DigiCert Assured ID CA-1
-"
-
 set_colors() {
-  color_success='\033[1;92m' # Bright green
-  color_error='\033[91m' # Red
+  color_success='\033[92m' # Bright green
+  color_error='\033[91m' # Bright red
   color_known='\033[32m' # Green
   color_unknown='\033[33m' # Yellow
-  color_file='\033[1;95m' # Bright purple
+  color_file='\033[1;95m' # Bold bright purple
+  color_check='\033[95m' # Bright purple
   color_reset='\033[0;39m'
-  color_debug1='\033[96m' # Cyan
-  color_debug2='\033[90m' # Dark gray
-  grep_color_success=${color_success:5:((${#color_success}-6))}
-  grep_color_error=${color_error:5:((${#color_error}-6))}
-  grep_color_known=${color_known:5:((${#color_known}-6))}
-  grep_color_unknown=${color_unknown:5:((${#color_unknown}-6))}
+  color_debug1='\033[1;96m' # Bold cyan
+  color_debug2='\033[96m' # Cyan
 }
 
 # INITIALIZATION: #############################################################
 
 # "okstrings" and "errorstrings" are used to highlight osslsigncode's results
 okstrings='Signature verification: ok|Timestamp Server Signature verification: ok'
-errorstrings='MISMATCH!!!!|MISMATCH!!!|MISMATCH|failed|Failed|No signature found.'
+errorstrings='MISMATCH!!!!|MISMATCH!!!|MISMATCH|failed|Failed|No signature found'
 
 rarcount=0 # Global number of RAR archives encountered by innocheck()
 rarfiles="" # List of bins that are identified as RAR archives
@@ -106,18 +103,18 @@ The checks consist of 3 parts:
   3. Inno Setup file checksum verification (actual game files packed inside exe and bin files)
 
 Options:
-  -b  Enable bin files check
+  -b  Enable binary check
   -B  Same as -b, but disable checksum calculation
   -c  Compact mode: all output but filenames and results is suppressed
   -1  Same as -c
   -C  Disable colors
   -f  Force checks on all exe files (not just setup_*.exe)
   -h  Display this help
-  -i  Enable Inno Setup check
+  -i  Enable innoextract check
   -I  Same as -i, but disable test-extracting
   -r  Traverse directories recursively
   -R  Disable RAR test-extracting
-  -s  Enable exe digital signature verification
+  -s  Enable signature check
   -S  Silent mode: all output is suppressed; only the 1st exe file is checked
       (Used for exit code checks)
   --  Anything following this is considered a file/directory
@@ -149,7 +146,8 @@ while [[ $1 == "-"* && ${#1} -gt 1 ]]; do
   shift
 done
 
-[[ $1 == "" ]] && set -- . # If no arguments have been given, use current directory
+# If no arguments have been given, use current directory
+[[ $1 == "" ]] && set -- .
 
 # If no check has been enabled, enable all checks
 if [[ $check_signatures$check_binaries$check_innosetup == "" ]]; then
@@ -159,20 +157,22 @@ fi
 # Exit if selected, required binaries are not available
 [[ $check_signatures == true ]] && ! hash osslsigncode &> /dev/null && {
   echo "osslsigncode binary not found! Which is required to verify exe signatures."
-  echo "Download the latest version from https://github.com/mtrojnar/osslsigncode"
+  echo "Download the latest version from https://github.com/mtrojnar/osslsigncode."
   exit 1
 }
 [[ $check_innosetup == true ]] && ! hash innoextract &> /dev/null && {
   echo "innoextract binary not found! Which is required to verify checksums of compressed files inside exe and bin files."
-  echo "Download the latest version from https://constexpr.org/innoextract"
+  echo "Download the latest version from https://constexpr.org/innoextract."
   exit 1
 }
 
 # Disable unrar if not available
-if [[ ! -z ${unraroption+x} && $check_innosetup == true && ! $disable_extracting == true ]] && ! hash unrar &> /dev/null && ! hash unar &> /dev/null; then
+if [[ ! -z ${unraroption+x} && $check_innosetup == true \
+  && ! $disable_extracting == true ]] && ! hash unrar &> /dev/null \
+  && ! hash unar &> /dev/null; then
   unset unraroption
   echo "unrar/unar binary not found - RAR extraction has been disabled."
-  echo "Download the latest UnRAR version from https://www.rarlab.com/rar_add.htm"
+  echo "Download the latest UnRAR version from https://www.rarlab.com/rar_add.htm."
 fi
 
 # Check osslsigncode version
@@ -185,7 +185,8 @@ fi
 # Enable colors
 [[ $enable_colors == true ]] && set_colors
 
-# Escapes all regexp metacharacters in user strings for use with grep
+# Escapes all regex metacharacters in user strings for internal regex use, and
+# creates "|"-delimited strings
 prepare_user_strings() {
   IFS=$'\n'
   for string in $1; do
@@ -196,9 +197,9 @@ prepare_user_strings() {
   done
   echo "${result%|}"
 }
-serials=$(prepare_user_strings "$serials")
 subjects=$(prepare_user_strings "$subjects")
 issuers=$(prepare_user_strings "$issuers")
+serials=$(prepare_user_strings "$serials")
 
 # FUNCTIONS: ##################################################################
 
@@ -212,52 +213,41 @@ debugmessage() {
 error() { ((errorcount++)); errorfiles+="[$checkcount] $1 ($2)"$'\n'; }
 
 sigcheck() {
-  echo -e "Running signature check..."
-  local output
-  output=$(osslsigncode verify $osslsigncode_options "$1" 2>&1)
+  echo -e "${color_check}Running signature check...${color_reset}"
+  local osslsigncode_output
+  osslsigncode_output=$(osslsigncode verify $osslsigncode_options "$1" 2>&1)
   returncode=$?
 
   # Adjust osslsigncode's output
-  output=${output//$'\t'} # Remove all tabs
-  echo "$output" \
-    | GREP_COLOR=$grep_color_unknown grep --color=always \
-        -P '(Subject:|Issuer :|Serial :|$)\K.*' \
-    | GREP_COLOR=$grep_color_known grep --color=always \
-        -E "$serials|$subjects|$issuers|$" \
-    | GREP_COLOR=$grep_color_error grep --color=always -E "$errorstrings|$" \
-    | GREP_COLOR=$grep_color_success grep --color=always -E "$okstrings|$" \
-    | grep --invert-match -E -e '^$' -e '^Succeeded' -e '^------------------' \
-        -e "^(Certificate expiration date:$|notBefore.*|notAfter.*|CAfile:.*|TSA's certificates file:.*|CRL distribution point:.*|TSA's CRL distribution point:.*)"
-
-  # Adjust osslsigncode's output (pure Bash alternative)
-#  echo "$output" \
-#    | while read -r line; do # read without "IFS=" removes leading whitespace
-#        # Mark known/unknown strings
-#        if [[ $line =~ ^(Subject:|Issuer :|Serial :).* ]]; then
-#          if [[ $line =~ .*($serials|$subjects|$issuers).* ]]; then
-#            echo -e "${line%%:*}:${color_known}${line#*:}${color_reset}"
-#          else
-#            echo -e "${line%%:*}:${color_unknown}${line#*:}${color_reset}"
-#          fi
-#        # Mark errors
-#        elif [[ $line =~ .*($errorstrings).* ]]; then
-#          echo -e "${color_error}$line${color_reset}"
-#        # Mark success
-#        elif [[ $line =~ ($okstrings).* ]]; then
-#          echo -e "${color_success}$line${color_reset}"
-#        # Remove osslsigncode clutter
-#        elif [[ $line != "" && $line != "Succeeded" && $line != "------------------" \
-#            && ! $line =~ ^(Certificate expiration date:$|notBefore.*|notAfter.*|CAfile:.*|TSA\'s certificates file:.*|CRL distribution point:.*|TSA\'s CRL distribution point:.*) ]]
-#        then
-#          echo "$line"
-#        fi
-#      done
+  if [[ $compactmode != true ]]; then
+    while read -r line; do # read without "IFS=" removes ossligncode's tabs
+      # Mark known/unknown strings
+      if [[ $line  == +(Subject:|Issuer :|Serial :)* ]]; then
+        if [[ ${line#*: } == +($subjects|$issuers|$serials) ]]; then
+          echo -e "${line%%:*}:${color_known}${line#*:}${color_reset}"
+        else
+          echo -e "${line%%:*}:${color_unknown}${line#*:}${color_reset}"
+        fi
+      # Mark errors
+      elif [[ $line =~ .*($errorstrings) ]]; then
+        echo -e "${color_error}$line${color_reset}"
+      # Mark success
+      elif [[ $line == +($okstrings) ]]; then
+        echo -e "${line:0:-2}${color_success}OK${color_reset}"
+      # Remove osslsigncode clutter
+      elif [[ $line == !(''|------------------|Succeeded|Succeeded.) \
+        && $line != +(Certificate expiration date:|notBefore|notAfter|CAfile:|TSA\'s certificates file|CRL distribution point|TSA\'s CRL distribution point:)* ]];
+      then
+        echo "$line"
+      fi
+    done < <(echo "$osslsigncode_output")
+  fi
 
   # Error handling
   # osslsigncode 2.0.0 and older: "No signature found."
   # osslsigncode 2.1.0: "No signature found"
   # Note: osslsigncode 2.0.0 and older exit with 0 even when no signature found
-  if [[ $output == *"No signature found"* ]]; then
+  if [[ $osslsigncode_output == *"No signature found"* ]]; then
     error "$1" "no digital signature found"
   elif [[ $returncode != 0 ]]; then
     error "$1" "digital signature error"
@@ -265,7 +255,7 @@ sigcheck() {
 }
 
 bincheck() {
-  echo -e "Running bin check..."
+  echo -e "${color_check}Running binary check...${color_reset}"
   local crcstring
   crcstring=$(tac "$1" | grep -a -m 1 -i -o '[[:alnum:]]*#GOGCRCSTRING')
   debugmessage "Raw GOGCRCSTRING: $crcstring"
@@ -293,9 +283,8 @@ bincheck() {
   if [[ $multiplier == "00" ]]; then
     echo "Exe file claims not to have bin files."
     if compgen -G "${1%.exe}-*.bin" > /dev/null; then
-      echo "However, matching bin file(s) exist:"
+      echo -e "${color_unknown}However, matching bin file(s) exist:${color_reset}"
       for i in "${1%.exe}"-*.bin; do echo "  $i"; done
-      echo -e "${color_error}Unresolved dilemma, aborting.${color_reset}"
       error "$1" "bin files exist that shouldn't"
     else
       echo "No matching bin files found."
@@ -308,7 +297,7 @@ bincheck() {
   md5hashes=${md5hashes,,} # Set md5 hashes to lowercase
   debugmessage "Raw MD5 hashes: $md5hashes"
   echo -n "Found $((multiplier)) checksum"
-  if [[ $multiplier == "01" ]]; then echo ":"; else echo "s:"; fi
+  if [[ $multiplier == 01 ]]; then echo ":"; else echo "s:"; fi
 
   # Get the checksums
   local checksum checksums
@@ -321,14 +310,20 @@ bincheck() {
 
   # Compare the checksums
   local -i bincount=0
-  [[ $disable_binchecksumcalculation != true ]] && echo "Verifying checksums..."
+  if [[ $disable_binchecksumcalculation != true ]]; then
+    if [[ $multiplier == 01 ]]; then
+       echo "Verifying checksum..."
+    else
+       echo "Verifying checksums..."
+    fi
+  fi
   for bin in "${1%.exe}"-*.bin; do
     ((bincount++))
     if [[ $disable_binchecksumcalculation != true ]]; then
-      echo -n "${bin##*/} "
+      echo "${bin##*/}: "
       checksum=$(md5sum "$bin")
       checksum=${checksum%  *}
-      echo -n "$checksum "
+      echo -n "$checksum: "
       if [[ $checksums == *"$checksum"* ]]; then
         echo -e "${color_success}OK${color_reset}"
       else
@@ -347,7 +342,8 @@ bincheck() {
 }
 
 innocheck() {
-  echo -e "Running innoextract check..."
+  echo -e "${color_check}Running innoextract check...${color_reset}"
+
   # Abort if exe is not an Inno Setup installer
   if ! innoextract --info "$1" > /dev/null; then
     echo -e "${color_error}innoextract reported errors while probing the file.${color_reset}"
@@ -379,7 +375,7 @@ innocheck() {
   # Detect RAR archives
   if [[ -f "${1%.exe}"-1.bin ]]; then
     if [[ $(file "${1%.exe}"-1.bin) == *RAR* ]]; then
-      echo -e "${color_unknown}RAR format detected${color_reset} (innoextract does not know bin contents' checksums)."
+      echo -e "${color_unknown}RAR format detected.${color_reset} Innoextract does not know bin contents' checksums."
       if [[ $disable_extracting != true && $unraroption != '--gog' ]]; then
         echo "RAR extraction (--gog option) is disabled."
       fi
@@ -480,7 +476,8 @@ while [[ $1 != "" ]]; do
   if [[ -d "$1" ]]; then
     while IFS= read -r -d $'\0' exe; do
       gogcheck "$exe"
-    done < <(find "$1" $maxdepth -iname "$exeprefix*.exe" -type f -print0 | sort -z)
+    done < <(find "$1" $maxdepth -iname "$exeprefix*.exe" -type f -print0 \
+      | sort -z)
   elif [[ -f "$1" ]] && [[ ${1##*/} == "$exeprefix"*.exe ]]; then
     gogcheck "$1"
   fi
