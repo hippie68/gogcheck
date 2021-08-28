@@ -34,18 +34,20 @@ certfile=/etc/ssl/certs/ca-certificates.crt
 
 subjects="
 /C=PL/L=Warsaw/O=GOG Sp. z o.o./CN=GOG Sp. z o.o.
+/C=PL/L=Warszawa/O=GOG Sp. z o.o./CN=GOG Sp. z o.o.
 /C=CY/L=Larnaca/O=GOG Limited/CN=GOG Limited
 /C=CY/L=Nicosia/O=GOG Limited/CN=GOG Limited
 
 /C=US/O=DigiCert/CN=DigiCert Timestamp Responder
 /C=US/O=DigiCert Inc/OU=www.digicert.com/CN=DigiCert Assured ID Code Signing CA-1
+/C=US/O=DigiCert, Inc./CN=DigiCert Timestamp 2021
 "
 
 issuers="
 /C=US/O=DigiCert Inc/OU=www.digicert.com/CN=DigiCert SHA2 Assured ID Code Signing CA
 /C=US/O=DigiCert Inc/OU=www.digicert.com/CN=DigiCert Assured ID Root CA
 /C=US/O=DigiCert Inc/OU=www.digicert.com/CN=DigiCert Assured ID CA-1
-"
+/C=US/O=DigiCert Inc/OU=www.digicert.com/CN=DigiCert SHA2 Assured ID Timestamping CA"
 
 serials="
 06F56DD38538018E9A31248796E640AB
@@ -54,6 +56,7 @@ serials="
 0DB093590538192F52B39C94119A48CB
 05B5D9D6BB2960FBD330C5D6B9B7B7D2
 087DE552D352D9BAF0C2B6DF6AC4C64A
+096DCF2E35C66F13EF95FCC8BFAC3E11
 
 0409181B5FD5BB66755343B56F955008
 03019A023AFF58B16BD6D5EAE617F066
@@ -61,6 +64,8 @@ serials="
 038B96F070D9E21E55A5426792E1C83A
 0FA8490615D700A0BE2176FDC5EC6DBD
 039FEDEDCB795B8DED320C8919F03689
+0D424AE0BE3A88FF604021CE1400F0DD
+0AA125D6D6321B7E41E405DA3697C215
 "
 
 set_colors() {
@@ -181,6 +186,7 @@ osslsigncode_version=$(osslsigncode -v 2> /dev/null \
 if [[ ${osslsigncode_version//./} -ge 210 ]]; then
   osslsigncode_options="-CAfile $certfile -untrusted $certfile"
 fi
+# Note: future versions will have changed "-untrusted" to "-TSA-CAfile"
 
 # Enable colors
 [[ $enable_colors == true ]] && set_colors
