@@ -283,10 +283,10 @@ bincheck() {
   fi
 
   crcstring=${crcstring%#GOGCRCSTRING*} # Remove the string name, leaving numbers
-  local multiplier=${crcstring: -2} # The 2-digit number before '#GOGCRCSTRING'
+  local multiplier=$((10#${crcstring: -2})) # The 2-digit number before '#GOGCRCSTRING'
 
   # Leave if installer expects 0 bin files
-  if [[ $multiplier == "00" ]]; then
+  if [[ $multiplier -eq 0 ]]; then
     echo "Exe file claims not to have bin files."
     if compgen -G "${1%.exe}-*.bin" > /dev/null; then
       echo -e "${color_unknown}However, matching bin file(s) exist:${color_reset}"
@@ -299,16 +299,16 @@ bincheck() {
   fi
 
   crcstring=${crcstring::-2} # Remove the 2-digit number
-  local md5hashes=${crcstring:(( - 10#$multiplier * 32 ))} # Omit characters not part of the hashes
+  local md5hashes=${crcstring:(( - $multiplier * 32 ))} # Omit characters not part of the hashes
   md5hashes=${md5hashes,,} # Set md5 hashes to lowercase
   debugmessage "Raw MD5 hashes: $md5hashes"
-  echo -n "Found $((multiplier)) checksum"
-  if [[ $multiplier == 01 ]]; then echo ":"; else echo "s:"; fi
+  echo -n "Found $multiplier checksum"
+  if [[ $multiplier -eq 1 ]]; then echo ":"; else echo "s:"; fi
 
   # Get the checksums
   local checksum checksums
-  for i in $(seq -w 01 "$multiplier"); do
-    checksum=${md5hashes:(( 32 * ((10#$i - 1)) )):32}
+  for i in $(seq 1 $multiplier); do
+    checksum=${md5hashes:(( 32 * (($i - 1)) )):32}
     [[ $checksum == "" ]] && checksum="[empty]                         "
     echo "$checksum"
     checksums+="$checksum " # Add current checksum to known checksums
@@ -317,7 +317,7 @@ bincheck() {
   # Compare the checksums
   local -i bincount=0
   if [[ $disable_binchecksumcalculation != true ]]; then
-    if [[ $multiplier == 01 ]]; then
+    if [[ $multiplier -eq 1 ]]; then
        echo "Verifying checksum..."
     else
        echo "Verifying checksums..."
@@ -342,7 +342,7 @@ bincheck() {
 
   # Throw an error when the numbers of checksums and bins differ
   if [[ ! $multiplier -eq $bincount ]]; then
-    echo -e "${color_error}Warning: ${multiplier/#00/0} bin files expected, but $bincount found.${color_reset}"
+    echo -e "${color_error}Warning: $multiplier bin files expected, but $bincount found.${color_reset}"
     error "$1" "wrong number of bin files"
   fi
 }
