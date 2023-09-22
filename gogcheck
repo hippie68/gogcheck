@@ -366,8 +366,8 @@ bincheck() {
        echo "Verifying checksums..."
     fi
   fi
-  bin_files="${1%.exe}-"*.bin
-  if compgen -G "$bin_files"; then
+  bin_files=${1%.exe}-*.bin
+  if compgen -G "$bin_files" > /dev/null; then
     for bin in $bin_files; do
       ((bincount++))
       if [[ $disable_binchecksumcalculation != true ]]; then
