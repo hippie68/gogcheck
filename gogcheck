@@ -197,6 +197,12 @@ if [[ $check_innosetup == true ]]; then
 fi
 [[ $unrar_directory ]] && PATH="$unrar_directory:$PATH"
 
+# Check for "md5sum" command
+if [[ $check_binaries == true ]] && ! hash md5sum &> /dev/null; then
+  echo "The \"md5sum\" command is not available on this system. It is required to verify .bin files."
+  exit 1
+fi
+
 # Check for "file" command
 if ! file -v &> /dev/null; then
   echo "The \"file\" command is not available on this system. RAR files cannot be detected and will produce errors during the innoextract check."
@@ -360,25 +366,26 @@ bincheck() {
        echo "Verifying checksums..."
     fi
   fi
-  for bin in "${1%.exe}"-*.bin; do
-    ((bincount++))
-    if [[ $disable_binchecksumcalculation != true ]]; then
-      echo "${bin##*/}: "
-      checksum=$(md5sum "$bin")
-      if [[ $? -ne 0 ]]; then
-        continue
-      fi
-      checksum=${checksum%% *}
-      echo -n "$checksum: "
-      if [[ $checksums == *"$checksum"* ]]; then
-        echo -e "${color_success}OK${color_reset}"
+  bin_files="${1%.exe}-"*.bin
+  if compgen -G "$bin_files"; then
+    for bin in $bin_files; do
+      ((bincount++))
+      if [[ $disable_binchecksumcalculation != true ]]; then
+        echo "${bin##*/}: "
+        checksum=$(md5sum "$bin")
+        checksum=${checksum%% *}
+        echo -n "$checksum: "
+        if [[ $checksums == *"$checksum"* ]]; then
+          echo -e "${color_success}OK${color_reset}"
+        else
+          echo -e "${color_error}Error${color_reset}"
+          error "${bin##*/}" "wrong checksum"
+        fi
       else
-        echo -e "${color_error}Error${color_reset}"
-        error "${bin##*/}" "wrong checksum"
+        echo "Found .bin file: ${bin##*/}"
       fi
-    else echo "Found .bin file: ${bin##*/}"
-    fi
-  done
+    done
+  fi
 
   # Throw an error when the numbers of checksums and .bin files differ
   if [[ ! $multiplier -eq $bincount ]]; then
