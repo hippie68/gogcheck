@@ -110,7 +110,7 @@ rarfiles="" # List of .bin files that are identified as RAR archives
 errorcount=0 # Global count of errors or unexpected results
 errorfiles="" # List of files that produced errors
 checkcount=0 # Each .exe file gets a unique number - used for tracking errors faster
-exeprefix='setup_' # Overridden by command line option -F
+exe_regex='(^|.*/)(setup_|patch_).*\.exe' # Overridden by command line option -F
 maxdepth='-maxdepth 1' # Standard value for main loop's "find" command, unless -r set
 unraroption='--gog' # Enables RAR test-extracting
 
@@ -132,7 +132,7 @@ Options:
   -c  Compact mode: all output but filenames and results is suppressed
   -1  Same as -c
   -C  Disable colors
-  -f  Force checks on all .exe files (not just setup_*.exe)
+  -f  Force checks on all .exe files (not just setup_*.exe and patch_*.exe)
   -h  Display this help
   -i  Enable innoextract check
   -I  Same as -i, but disable test-extracting
@@ -156,7 +156,7 @@ while [[ $1 == "-"* && ${#1} -gt 1 ]]; do
       c|1) compactmode=true ;;
       C) unset enable_colors ;;
       D) debug=true ;;
-      f|F) unset exeprefix ;;
+      f|F) exe_regex='(^|.*/).*\.exe' ;;
       h) usage ;;
       i) check_innosetup=true ;;
       I) check_innosetup=true; disable_extracting=true ;;
@@ -366,9 +366,8 @@ bincheck() {
        echo "Verifying checksums..."
     fi
   fi
-  bin_files=${1%.exe}-*.bin
-  if compgen -G "$bin_files" > /dev/null; then
-    for bin in $bin_files; do
+  if compgen -G "${1%.exe}-*.bin" > /dev/null; then
+    for bin in "${1%.exe}"-*.bin; do
       ((bincount++))
       if [[ $disable_binchecksumcalculation != true ]]; then
         echo "${bin##*/}: "
@@ -529,9 +528,8 @@ while [[ $1 != "" ]]; do
   if [[ -d "$1" ]]; then
     while IFS= read -r -d $'\0' exe; do
       gogcheck "$exe"
-    done < <(find "$1" $maxdepth -iname "$exeprefix*.exe" -type f -print0 \
-      | sort -z)
-  elif [[ -f "$1" ]] && [[ ${1##*/} == "$exeprefix"*.exe ]]; then
+    done < <(find "$1" $maxdepth -regextype posix-extended -iregex "$exe_regex" -type f -print0 | sort -z)
+  elif [[ -f "$1" ]] && [[ ${1,,} =~ $exe_regex ]]; then
     gogcheck "$1"
   fi
   shift
