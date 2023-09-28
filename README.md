@@ -10,7 +10,7 @@ Options:
   -c  Compact mode: all output but filenames and results is suppressed
   -1  Same as -c
   -C  Disable colors
-  -f  Force checks on all exe files (not just setup_*.exe)
+  -f  Force checks on all exe files (not just setup_*.exe and patch_*.exe)
   -h  Display this help
   -i  Enable Inno Setup check
   -I  Same as -i, but disable test-extracting
