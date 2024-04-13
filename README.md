@@ -77,9 +77,9 @@ Required programs:
 Optional:
 - unrar to let innoextract test RAR archives (https://www.rarlab.com/rar_add.htm)
 
-To override default program names, edit the script's "USER VARIABLES" section or pass them as command line prefixes:
+To specify a Certificate Authority (CA) file or to override default program names, edit the script's "USER VARIABLES" section or pass them as command line prefixes:
 
-    osslsigncode_binary=/usr/local/bin/osslsc_2.7 innoextract_binary=inno_1.9 unrar_directory=~/bin gogcheck ...
+    certfile=/etc/ssl/certs/ca-certificates.crt osslsigncode_binary=/usr/local/bin/osslsc_2.7 innoextract_binary=inno_1.9 unrar_directory=~/bin gogcheck ...
 
 For Windows users: The script also works with the Windows Subsystem for Linux (WSL) on Windows 10  
 -> https://docs.microsoft.com/en-us/windows/wsl/
