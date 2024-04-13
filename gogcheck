@@ -103,7 +103,6 @@ set_colors() {
 # INITIALIZATION: #############################################################
 
 # "okstrings" and "errorstrings" are used to highlight osslsigncode's results
-#okstrings='Signature verification: ok|Timestamp Server Signature verification: ok|Signature CRL verification: ok'
 okstrings='Signature verification: ok|Signature CRL verification: ok'
 errorstrings='MISMATCH!!!!|MISMATCH!!!|MISMATCH|failed|Failed|No signature found'
 
