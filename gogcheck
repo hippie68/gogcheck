@@ -24,7 +24,8 @@ compactmode=false
 
 # You might need to specify a Certificate Authority (CA) file for osslsigncode.
 # On Debian/Ubuntu/WSL: "/etc/ssl/certs/ca-certificates.crt"
-# For Git Bash: "/etc/pki/ca-trust/extracted/openssl/ca-bundle.trust.crt"
+# For Git Bash: "/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem"
+#           Or: "/etc/pki/ca-trust/extracted/openssl/ca-bundle.trust.crt"
 #certfile=
 
 # Optionally specify the required programs' locations here:
@@ -38,7 +39,7 @@ compactmode=false
 # It is not a complete collection, and future game releases might come with new strings.
 # Use this section to include additional strings seen in your known-legit files.
 
-subjects="
+subjects='
 /C=PL/L=Warsaw/O=GOG Sp. z o.o./CN=GOG Sp. z o.o.
 /C=PL/L=Warszawa/O=GOG Sp. z o.o./CN=GOG Sp. z o.o.
 /C=CY/L=Larnaca/O=GOG Limited/CN=GOG Limited
@@ -50,9 +51,9 @@ subjects="
 /C=US/O=DigiCert Inc/OU=www.digicert.com/CN=DigiCert Assured ID Code Signing CA-1
 /C=US/O=DigiCert, Inc./CN=DigiCert Timestamp 2021
 /C=US/O=DigiCert/CN=DigiCert Timestamp 2022 - 2
-"
+'
 
-issuers="
+issuers='
 /C=US/O=DigiCert Inc/OU=www.digicert.com/CN=DigiCert SHA2 Assured ID Code Signing CA
 /C=US/O=DigiCert Inc/OU=www.digicert.com/CN=DigiCert Assured ID Root CA
 /C=US/O=DigiCert Inc/OU=www.digicert.com/CN=DigiCert Assured ID CA-1
@@ -60,9 +61,9 @@ issuers="
 /C=US/O=DigiCert Inc/OU=www.digicert.com/CN=DigiCert Trusted Root G4
 /C=US/O=DigiCert, Inc./CN=DigiCert Trusted G4 Code Signing RSA4096 SHA384 2021 CA1
 /C=US/O=DigiCert, Inc./CN=DigiCert Trusted G4 RSA4096 SHA256 TimeStamping CA
-"
+'
 
-serials="
+serials='
 06F56DD38538018E9A31248796E640AB
 0B2CE86937CD32092D0C003EFDF5D988
 0CB6E45E4D9295AFD0DEA595E0156ACE
@@ -85,7 +86,7 @@ serials="
 073637B724547CD847ACFD28662A5E5B
 08AD40B260D29C4C9F5ECDA9BD93AED9
 0C4D69724B94FA3C2A4A3D2907803D5A
-"
+'
 
 set_colors() {
   color_success='\033[92m' # Bright green
@@ -102,7 +103,8 @@ set_colors() {
 # INITIALIZATION: #############################################################
 
 # "okstrings" and "errorstrings" are used to highlight osslsigncode's results
-okstrings='Signature verification: ok|Timestamp Server Signature verification: ok'
+#okstrings='Signature verification: ok|Timestamp Server Signature verification: ok|Signature CRL verification: ok'
+okstrings='Signature verification: ok|Signature CRL verification: ok'
 errorstrings='MISMATCH!!!!|MISMATCH!!!|MISMATCH|failed|Failed|No signature found'
 
 rarcount=0 # Global number of RAR archives encountered by innocheck()
@@ -156,7 +158,7 @@ while [[ $1 == "-"* && ${#1} -gt 1 ]]; do
       c|1) compactmode=true ;;
       C) unset enable_colors ;;
       D) debug=true ;;
-      f|F) exe_regex='(^|.*/).*\.exe' ;;
+      f|F) exe_regex='.*\.exe' ;;
       h) usage ;;
       i) check_innosetup=true ;;
       I) check_innosetup=true; disable_extracting=true ;;
@@ -281,7 +283,7 @@ sigcheck() {
       elif [[ $line =~ .*($errorstrings) ]]; then
         echo -e "${color_error}$line${color_reset}"
       # Mark success
-      elif [[ $line == +($okstrings) ]]; then
+      elif [[ $line == *+($okstrings) ]]; then
         echo -e "${line:0:-2}${color_success}OK${color_reset}"
       # Remove osslsigncode clutter
       elif [[ $line == !(''|------------------|Succeeded|Succeeded.) \
@@ -300,6 +302,9 @@ sigcheck() {
     error "$1" "no digital signature found"
   elif [[ $returncode != 0 ]]; then
     error "$1" "digital signature error"
+  elif [[ $osslsigncode_output != *'/O=GOG '* ]]; then
+    echo -e "${color_error}Warning: digital signature not from GOG?${color_reset}"
+    error "$1" "digital signature not from GOG?"
   fi
 }
 
