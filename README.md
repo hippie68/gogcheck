@@ -1,3 +1,5 @@
+# gogcheck
+
 Bash script for the purpose of scanning your GOG offline installer collection for valid digital signatures and correct checksums, making sure your downloads have not been modified by someone else.
 
 Usage: `gogcheck [options] [file/directory ...]`  
@@ -89,9 +91,13 @@ You may need to download or compile the latest version of innoextract (at least 
 
 gogcheck may still have bugs. Please report issues at https://github.com/hippie68/gogcheck/issues. Any feedback is very welcome!
 
-Q&A:
-----
+# makecertfile
 
+Sometimes new GOG installers may be signed by new certificates that aren't included in the provided (or automatically used) certificate authorities file. The optional "makecertfile" script can be used to create an up-to-date certificate file.  
+The script downloads files from external servers: Mozilla's certificate list and additional certificates whose URLs can be added to the script (separated by newlines).
+Be aware the script downloads and executes the third party script "mk-ca-bundle.pl" from the cURL GitHub repository.
+
+# Q&A
 What does it mean if sigcheck's output goes green?
 
 It means the string that went green is known to the script. The latter which contains a section in which you can put known-legit strings found in your purchased games. This pre-made string collection is not complete. However, as this optional feature is just there for visual convenience, to quickly spot both known and new strings, it does not affect osslsigncode's functionality.
