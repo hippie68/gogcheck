@@ -30,8 +30,8 @@ for tool in cURL Perl; do
 done
 
 # Check for the Perl script mk-ca-bundle.pl and download it, if necessary
-if [[ ! -f mk-ca-bundle.pl ]] && ! hash mk-ca-bundle.pl; then
-  curl --silent 'https://github.com/curl/curl/blob/master/scripts/mk-ca-bundle.pl' > mk-ca-bundle.pl
+if [[ ! -f mk-ca-bundle.pl ]] && ! hash mk-ca-bundle.pl 2> /dev/null; then
+  curl --silent 'https://raw.githubusercontent.com/curl/curl/master/scripts/mk-ca-bundle.pl' > mk-ca-bundle.pl
   if [[ $? -ne 0 ]]; then
     'Could not download the Perl script "mk-ca-bundle.pl".'
     exit 1
