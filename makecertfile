@@ -1,0 +1,56 @@
+#!/bin/bash
+
+# This script creates a certificate file (in the current directory), which can
+# be used by "gogcheck" (https://github.com/hippie68/gogcheck) to verify GOG
+# installers.
+# Be aware the script downloads files from external servers - Mozilla's
+# certificate list and additional certificates, specified below - and downloads
+# and executes the third party script "mk-ca-bundle.pl" from the cURL GitHub
+# repository.
+
+additional_certs='
+https://cacerts.digicert.com/DigiCertTrustedG4CodeSigningRSA4096SHA3842021CA1.crt.pem
+'
+
+# Script starts below: ########################################################
+
+if [[ ! $1 ]]; then
+  echo "Usage: ${0##*/} OUTPUT_FILENAME"
+  exit 0
+else
+  output=$1
+fi
+
+# Check for Perl
+for tool in cURL Perl; do
+  if ! hash ${tool,,} 2> /dev/null; then
+    echo "Please install $tool to be able to use this script."
+    exit 1
+  fi
+done
+
+# Check for the Perl script mk-ca-bundle.pl and download it, if necessary
+if [[ ! -f mk-ca-bundle.pl ]] && ! hash mk-ca-bundle.pl; then
+  curl --silent 'https://github.com/curl/curl/blob/master/scripts/mk-ca-bundle.pl' > mk-ca-bundle.pl
+  if [[ $? -ne 0 ]]; then
+    'Could not download the Perl script "mk-ca-bundle.pl".'
+    exit 1
+  fi
+fi
+
+# Download Mozilla's certificate file and extract required certs to PEM format
+perl mk-ca-bundle.pl -fup CODE_SIGNING:TRUSTED,MUST_VERIFY_TRUST "$output" || exit $?
+if [[ ! -f $output ]]; then
+  echo "Could not find file \"$output\"."
+  exit 1
+fi
+
+# Add missing certificates
+for cert in $additional_certs; do
+  printf "\n%s\n" "$cert" >> "$output"
+  for ((i = 0; i < ${#cert}; i++)); do echo -n "="; done >> "$output"
+  echo >> "$output"
+  curl --silent "$cert" >> "$output" || exit $?
+done
+
+echo "Successfully created certfile \"$output\"."
