@@ -40,9 +40,8 @@ elif hash "$script_name" 2> /dev/null; then
   echo "Required script \"$script_name\" is available on this system."
 else
   echo "Required script \"$script_name\" not found. Downloading now..."
-  curl --silent "$script_url" > "$script_name"
-  if [[ $? -ne 0 ]]; then
-    echo 'Could not download the required script \"$script_name\".'
+  if ! curl --silent "$script_url" > "$script_name"; then
+    echo "Could not download the required script \"$script_name\"."
     echo 'Please download it manually or try again.'
     echo "The URL is \"$script_url\".".
     exit 1
@@ -58,7 +57,7 @@ if hash "$script_name" 2> /dev/null; then
   "$script_name" $script_options "$output" || exit $?
 else
   checksum=$(sha256sum "$script_name")
-  if [[ ${checksum%% *} != $script_sha256sum ]]; then
+  if [[ ${checksum%% *} != "$script_sha256sum" ]]; then
     read -p 'The script has an unexpected checksum. Execute it anyway (y/n)? ' reply
     if [[ ${reply,,} != 'y' ]]; then
       exit 1
@@ -76,10 +75,12 @@ echo "Script \"$script_name\" finished."
 echo 'Adding missing certificates...'
 for cert in $additional_certs; do
   echo "  - $cert"
-  printf "\n%s\n" "$cert" >> "$output"
-  for ((i = 0; i < ${#cert}; i++)); do echo -n "="; done >> "$output"
-  echo >> "$output"
-  curl --silent "$cert" >> "$output" || exit $?
+  {
+    printf "\n%s\n" "$cert"
+    for ((i = 0; i < ${#cert}; i++)); do echo -n "="; done
+    echo
+    curl --silent "$cert" || exit $?
+  } >> "$output"
 done
 
 echo "Successfully created certfile \"$output\"."
