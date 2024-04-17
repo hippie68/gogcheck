@@ -1,18 +1,22 @@
 #!/bin/bash
 
-# This script creates a certificate file (in the current directory), which can
-# be used by "gogcheck" (https://github.com/hippie68/gogcheck) to verify GOG
-# installers.
+# This script creates a certificate file, which can be used by "gogcheck"
+# (https://github.com/hippie68/gogcheck) to verify GOG installers.
 # Be aware the script downloads files from external servers - Mozilla's
 # certificate list and additional certificates, specified below - and downloads
-# and executes the third party script "mk-ca-bundle.pl" from the cURL GitHub
-# repository.
+# (if necessary) and executes the third party script "mk-ca-bundle.pl" from the
+# cURL GitHub repository.
 
 additional_certs='
 https://cacerts.digicert.com/DigiCertTrustedG4CodeSigningRSA4096SHA3842021CA1.crt.pem
 '
 
 # Script starts below: ########################################################
+
+script_name='mk-ca-bundle.pl'
+script_url='https://raw.githubusercontent.com/curl/curl/master/scripts/mk-ca-bundle.pl'
+script_sha256sum='4398394eb7b8e7879fadde3497bcc053a7cf19f53a5f2b79eac43ea2bb1e2192' # 2bc1d77 Jan 3, 2023
+script_options='-fup CODE_SIGNING:TRUSTED,MUST_VERIFY_TRUST'
 
 if [[ ! $1 ]]; then
   echo "Usage: ${0##*/} OUTPUT_FILENAME"
@@ -30,23 +34,48 @@ for tool in cURL Perl; do
 done
 
 # Check for the Perl script mk-ca-bundle.pl and download it, if necessary
-if [[ ! -f mk-ca-bundle.pl ]] && ! hash mk-ca-bundle.pl 2> /dev/null; then
-  curl --silent 'https://raw.githubusercontent.com/curl/curl/master/scripts/mk-ca-bundle.pl' > mk-ca-bundle.pl
+if [[ -f "$script_name" ]]; then
+  echo "Found required script \"$script_name\" in the current directory."
+elif hash "$script_name" 2> /dev/null; then
+  echo "Required script \"$script_name\" is available on this system."
+else
+  echo "Required script \"$script_name\" not found. Downloading now..."
+  curl --silent "$script_url" > "$script_name"
   if [[ $? -ne 0 ]]; then
-    'Could not download the Perl script "mk-ca-bundle.pl".'
+    echo 'Could not download the required script \"$script_name\".'
+    echo 'Please download it manually or try again.'
+    echo "The URL is \"$script_url\".".
     exit 1
   fi
+  echo '...done.'
+  echo 'Note: The downloaded script is located in the current directory, filename'
+  echo "      \"$script_name\". Remove it manually later if you don't need it anymore."
 fi
 
 # Download Mozilla's certificate file and extract required certs to PEM format
-perl mk-ca-bundle.pl -fup CODE_SIGNING:TRUSTED,MUST_VERIFY_TRUST "$output" || exit $?
+echo "Now executing the script \"$script_name\":"
+if hash "$script_name" 2> /dev/null; then
+  "$script_name" $script_options "$output" || exit $?
+else
+  checksum=$(sha256sum "$script_name")
+  if [[ ${checksum%% *} != $script_sha256sum ]]; then
+    read -p 'The script has an unexpected checksum. Execute it anyway (y/n)? ' reply
+    if [[ ${reply,,} != 'y' ]]; then
+      exit 1
+    fi
+  fi
+  perl "$script_name" $script_options "$output" || exit $?
+fi
 if [[ ! -f $output ]]; then
   echo "Could not find file \"$output\"."
   exit 1
 fi
+echo "Script \"$script_name\" finished."
 
 # Add missing certificates
+echo 'Adding missing certificates...'
 for cert in $additional_certs; do
+  echo "  - $cert"
   printf "\n%s\n" "$cert" >> "$output"
   for ((i = 0; i < ${#cert}; i++)); do echo -n "="; done >> "$output"
   echo >> "$output"
