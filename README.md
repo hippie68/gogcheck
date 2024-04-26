@@ -72,22 +72,9 @@ Files that produced errors:
 [1] ./setup_a_corrupted_game.exe (digital signature)
 ```
 
-Required programs:
-- osslsigncode (https://github.com/mtrojnar/osslsigncode)
-- innoextract (https://github.com/dscharrer/innoextract)
-
-Optional:
-- unrar to let innoextract test RAR archives (https://www.rarlab.com/rar_add.htm)
-
 To specify a Certificate Authority (CA) file or to override default program names, edit the script's "USER VARIABLES" section or pass them as command line prefixes:
 
     certfile=/etc/ssl/certs/ca-certificates.crt osslsigncode_binary=/usr/local/bin/osslsc_2.7 innoextract_binary=inno_1.9 unrar_directory=~/bin gogcheck ...
-
-For Windows users: The script also works with the Windows Subsystem for Linux (WSL) on Windows 10  
--> https://docs.microsoft.com/en-us/windows/wsl/
-
-You may need to download or compile the latest version of innoextract (at least 1.5 for RAR support) if your distro's package is outdated.  
--> https://constexpr.org/innoextract/#download
 
 gogcheck may still have bugs. Please report issues at https://github.com/hippie68/gogcheck/issues. Any feedback is very welcome!
 
@@ -96,6 +83,58 @@ gogcheck may still have bugs. Please report issues at https://github.com/hippie6
 Sometimes new GOG installers may be signed by new certificates that aren't included in the provided (or automatically used) certificate authorities file. The optional "makecertfile" script can be used to create an up-to-date certificate file.  
 The script downloads files from external servers: Mozilla's certificate list and additional certificates whose URLs can be added to the script (separated by newlines).
 Be aware the script downloads and executes the third party script "mk-ca-bundle.pl" from the cURL GitHub repository.
+
+# Setup
+
+## Important notes
+
+For Windows users: The script also works with the Windows Subsystem for Linux (WSL) on Windows 10/11
+-> https://docs.microsoft.com/en-us/windows/wsl/
+
+You may need to download or compile the latest version of innoextract (at least 1.5 for RAR support) if your distro's package is outdated.  
+-> https://constexpr.org/innoextract/#download
+
+## Required programs 
+
+- osslsigncode (https://github.com/mtrojnar/osslsigncode)
+- innoextract (https://github.com/dscharrer/innoextract)
+
+```
+sudo apt update
+sudo apt install osslsigncode
+sudo apt install innoextract
+```
+
+Optional:
+- unrar to let innoextract test RAR archives (https://www.rarlab.com/rar_add.htm)
+
+## Run
+
+1. Navigate to the game files directory
+
+    `cd /mnt/c/users/MyWindowsUsername/Downloads/gamefolder` (Example for WSL)
+
+3. Clone this repo
+
+    `git clone https://github.com/hippie68/gogcheck`
+
+3. (Optional but recommended) Create and add cert file
+
+    - Generate a new cert file
+  
+      `bash gogcheck/makecertfile cert1`
+
+    - Edit the script
+
+      `nano gogcheck/gogcheck`
+
+    - Under USER VARIABLES, uncomment `certfile=` and add the cert location
+  
+      `certfile=/mnt/c/users/MyWindowsUsername/Downloads/gamefolder/cert1` (Example if using WSL)
+
+4. Run the script
+
+    `bash gogcheck/gogcheck -R "setup_gameexample_0.1.2_(64bit)_(12345).exe"`
 
 # Q&A
 What does it mean if sigcheck's output goes green?
