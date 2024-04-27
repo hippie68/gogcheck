@@ -109,7 +109,7 @@ The optional "makecertfile" script can be used to create an up-to-date certifica
 The script downloads files from external servers: Mozilla's certificate list and additional certificates whose URLs can be added to the script (separated by newlines).  
 Be aware the script downloads and executes the third party script "mk-ca-bundle.pl" from the cURL GitHub repository.
 
-Usage: `makecertfile OUTPUT_FILENAME`
+Usage: `makecertfile OUTPUT_FILENAME`  
 The script will generate a new certificate file named "OUTPUT_FILENAME".  
 See [Modify Script Variables](#modify-script-variables) for how to make gogcheck aware of the newly-generated file.
 
