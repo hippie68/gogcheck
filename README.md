@@ -1,3 +1,12 @@
+# Table of Contents
+- [The Script "gogcheck"](#gogcheck)
+  - [Modify Script Variables](#modify-script-variables)
+- [The Script "makecertfile"](#makecertfile)
+- [For Windows Users](#for-windows-users)
+  - [Cygwin and Git Bash](#cygwin-and-git-bash)
+  - [WSL](#wsl)
+- [Q&A](#qa)
+
 # gogcheck
 
 Bash script for the purpose of scanning your GOG offline installer collection for valid digital signatures and correct checksums, making sure your downloads have not been modified by someone else.
@@ -73,35 +82,69 @@ Files that produced errors:
 ```
 
 Required programs:
-- osslsigncode (https://github.com/mtrojnar/osslsigncode)
-- innoextract (https://github.com/dscharrer/innoextract)
+- [osslsigncode](https://github.com/mtrojnar/osslsigncode)
+- [innoextract](https://github.com/dscharrer/innoextract) (at least version 1.5 for RAR support)
 
 Optional:
-- unrar to let innoextract test RAR archives (https://www.rarlab.com/rar_add.htm)
+- [unrar](https://www.rarlab.com/rar_add.htm) to let innoextract test RAR archives
 
-To specify a Certificate Authority (CA) file or to override default program names, edit the script's "USER VARIABLES" section or pass them as command line prefixes:
+## Modify Script Variables
+To optionally specify a Certificate Authority (CA) file (also see [makecertfile](#makecertfile)) or to override default program names, edit the script's "USER VARIABLES" section or pass them as command line prefixes:
 
     certfile=/etc/ssl/certs/ca-certificates.crt osslsigncode_binary=/usr/local/bin/osslsc_2.7 innoextract_binary=inno_1.9 unrar_directory=~/bin gogcheck ...
 
-For Windows users: The script also works with the Windows Subsystem for Linux (WSL) on Windows 10  
--> https://docs.microsoft.com/en-us/windows/wsl/
-
-You may need to download or compile the latest version of innoextract (at least 1.5 for RAR support) if your distro's package is outdated.  
--> https://constexpr.org/innoextract/#download
-
+---
 gogcheck may still have bugs. Please report issues at https://github.com/hippie68/gogcheck/issues. Any feedback is very welcome!
 
 # makecertfile
 
-Sometimes new GOG installers may be signed by new certificates that aren't included in the provided (or automatically used) certificate authorities file. The optional "makecertfile" script can be used to create an up-to-date certificate file.  
-The script downloads files from external servers: Mozilla's certificate list and additional certificates whose URLs can be added to the script (separated by newlines).
+Sometimes new GOG installers may be signed by new certificates that aren't included in the provided (or automatically used) certificate authorities file, causing the following error in osslsigncode/sigcheck:
+
+```
+Error: unable to get local issuer certificate
+PKCS7_verify error
+...
+```
+The optional "makecertfile" script can be used to create an up-to-date certificate file.  
+The script downloads files from external servers: Mozilla's certificate list and additional certificates whose URLs can be added to the script (separated by newlines).  
 Be aware the script downloads and executes the third party script "mk-ca-bundle.pl" from the cURL GitHub repository.
+
+Usage: `makecertfile OUTPUT_FILENAME`
+The script will generate a new certificate file named "OUTPUT_FILENAME".  
+See [Modify Script Variables](#modify-script-variables) for how to make gogcheck aware of the newly-generated file.
+
+Required programs:
+- [cURL](https://github.com/curl/curl)
+- [Perl](https://github.com/Perl/perl5)
+
+Optional:
+- [sha256sum](https://www.gnu.org/software/coreutils) to let makecertfile verify mk-ca-bundle.pl's integrity
+
+# For Windows Users
+
+The script is confirmed to work with either of the following setups:
+
+- [Cygwin](https://www.cygwin.com)
+- [Git Bash](https://gitforwindows.org)
+- [Windows Subsystem for Linux](https://docs.microsoft.com/en-us/windows/wsl) (WSL) on Windows 10/11
+
+## Cygwin and Git Bash
+You can use the required programs' Windows versions (.exe files). Note that curl.exe is already included in Windows 10/11.
+
+## WSL
+You can install the required programs' Linux versions in WSL like this:
+```
+sudo apt install osslsigncode innoextract unrar curl perl coreutils
+```
+Mark the scripts as executable: `chmod +x gogcheck makecertfile`.  
+To run gogcheck from anywhere inside WSL, for example put it in `/usr/local/bin`: `cp gogcheck /usr/local/bin`.  
+When editing the scripts from within Windows, make sure the editor you are using is respecting the Unix/Linux "LF" newline character format. On a recent, fully updated Windows 10/11 build, notepad.exe can be used. To instead edit the scripts from within WSL, use a Linux editor (for example nano: `nano gogcheck`; save with Ctrl-x).  
 
 # Q&A
 What does it mean if sigcheck's output goes green?
 
-It means the string that went green is known to the script. The latter which contains a section in which you can put known-legit strings found in your purchased games. This pre-made string collection is not complete. However, as this optional feature is just there for visual convenience, to quickly spot both known and new strings, it does not affect osslsigncode's functionality.
+- It means the string that went green is known to the script. The latter which contains a section in which you can put known-legit strings found in your purchased games. This pre-made string collection is not complete. However, as this optional feature is just there for visual convenience, to quickly spot both known and new strings, it does not affect osslsigncode's functionality.
 
 Is RAR support required?
 
-As innoextract does not know checksums for files stored inside RAR bin files (as opposed to Inno Setup bin files), the verification chain "valid .exe digital signature -> verified .bin checksums -> verified .bin archive contents" is broken at the final stage. You can still let innoextract use unrar/unar to check for regular CRC errors.
+- As innoextract does not know checksums for files stored inside RAR bin files (as opposed to Inno Setup bin files), the verification chain "valid .exe digital signature -> verified .bin checksums -> verified .bin archive contents" is broken at the final stage. You can still let innoextract use unrar/unar to check for regular CRC errors.
