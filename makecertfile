@@ -11,12 +11,25 @@ additional_certs='
 https://cacerts.digicert.com/DigiCertTrustedG4CodeSigningRSA4096SHA3842021CA1.crt.pem
 '
 
+# Functions: ##################################################################
+
+# Asks the user the yes-no question $1, returning 1 on "yes" and 0 on "no"
+ask() {
+  local reply
+  read -pr "$1 (y/n) " reply
+  if [[ $reply == 'y' ]]; then
+    return 0
+  else
+    return 1
+  fi
+}
+
 # Script starts below: ########################################################
 
 script_name='mk-ca-bundle.pl'
 script_url='https://raw.githubusercontent.com/curl/curl/master/scripts/mk-ca-bundle.pl'
 script_sha256sum='4398394eb7b8e7879fadde3497bcc053a7cf19f53a5f2b79eac43ea2bb1e2192' # 2bc1d77 Jan 3, 2023
-script_options='-fup CODE_SIGNING:TRUSTED,MUST_VERIFY_TRUST'
+script_options=(-fup 'CODE_SIGNING:TRUSTED,MUST_VERIFY_TRUST')
 
 if [[ ! $1 ]]; then
   echo "Usage: ${0##*/} OUTPUT_FILENAME"
@@ -25,7 +38,7 @@ else
   output=$1
 fi
 
-# Check for Perl
+# Check for required tools
 for tool in cURL Perl; do
   if ! hash ${tool,,} 2> /dev/null; then
     echo "Please install $tool to be able to use this script."
@@ -34,7 +47,7 @@ for tool in cURL Perl; do
 done
 
 # Check for the Perl script mk-ca-bundle.pl and download it, if necessary
-if [[ -f "$script_name" ]]; then
+if [[ -f $script_name ]]; then
   echo "Found required script \"$script_name\" in the current directory."
 elif hash "$script_name" 2> /dev/null; then
   echo "Required script \"$script_name\" is available on this system."
@@ -54,16 +67,17 @@ fi
 # Download Mozilla's certificate file and extract required certs to PEM format
 echo "Now executing the script \"$script_name\":"
 if hash "$script_name" 2> /dev/null; then
-  "$script_name" $script_options "$output" || exit $?
+  "$script_name" "${script_options[@]}" "$output" || exit $?
 else
-  checksum=$(sha256sum "$script_name")
-  if [[ ${checksum%% *} != "$script_sha256sum" ]]; then
-    read -p 'The script has an unexpected checksum. Execute it anyway (y/n)? ' reply
-    if [[ ${reply,,} != 'y' ]]; then
-      exit 1
+  if ! hash sha256sum 2> /dev/null; then
+     ask 'Program "sha256sum" not found. The script'\''s checksum cannot be verified.\nContinue anyway?' || exit 1
+  else
+    checksum=$(sha256sum "$script_name")
+    if [[ ${checksum%% *} != "$script_sha256sum" ]]; then
+      ask 'The script has an unexpected checksum. Execute it anyway?' || exit 1
     fi
+    perl "$script_name" "${script_options[@]}" "$output" || exit $?
   fi
-  perl "$script_name" $script_options "$output" || exit $?
 fi
 if [[ ! -f $output ]]; then
   echo "Could not find file \"$output\"."
