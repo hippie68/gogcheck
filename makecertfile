@@ -73,14 +73,14 @@ if hash "$script_name" 2> /dev/null; then
   "$script_name" "${script_options[@]}" "$output" || exit $?
 else
   if ! hash sha256sum 2> /dev/null; then
-     ask 'Program "sha256sum" not found. The script'\''s checksum cannot be verified.\nContinue anyway?' || exit 1
+    ask 'Program "sha256sum" not found. The script'\''s checksum cannot be verified.\nContinue anyway?' || exit 1
   else
     checksum=$(sha256sum "$script_name")
     if [[ ${script_sha256sums[*]} != *${checksum%% *}* ]]; then
       ask 'The script has an unexpected checksum. Execute it anyway?' || exit 1
     fi
-    perl "$script_name" "${script_options[@]}" "$output" || exit $?
   fi
+  perl "$script_name" "${script_options[@]}" "$output" || exit $?
 fi
 if [[ ! -f $output ]]; then
   echo "Could not find file \"$output\"."
