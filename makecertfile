@@ -16,7 +16,7 @@ https://cacerts.digicert.com/DigiCertTrustedG4CodeSigningRSA4096SHA3842021CA1.cr
 # Asks the user the yes-no question $1, returning 1 on "yes" and 0 on "no"
 ask() {
   local reply
-  read -pr "$1 (y/n) " reply
+  read -rp "$1 (y/n) " reply
   if [[ $reply == 'y' ]]; then
     return 0
   else
@@ -28,7 +28,10 @@ ask() {
 
 script_name='mk-ca-bundle.pl'
 script_url='https://raw.githubusercontent.com/curl/curl/master/scripts/mk-ca-bundle.pl'
-script_sha256sum='4398394eb7b8e7879fadde3497bcc053a7cf19f53a5f2b79eac43ea2bb1e2192' # 2bc1d77 Jan 3, 2023
+script_sha256sums=(
+4398394eb7b8e7879fadde3497bcc053a7cf19f53a5f2b79eac43ea2bb1e2192 # 2bc1d77 Jan  3, 2023
+7128aba721fa9219acd3212308e4d1ecf2649b5bf1edd0160eff7117fce67325 # 4fab113 Jun 29, 2024
+)
 script_options=(-fup 'CODE_SIGNING:TRUSTED,MUST_VERIFY_TRUST')
 
 if [[ ! $1 ]]; then
@@ -73,7 +76,7 @@ else
      ask 'Program "sha256sum" not found. The script'\''s checksum cannot be verified.\nContinue anyway?' || exit 1
   else
     checksum=$(sha256sum "$script_name")
-    if [[ ${checksum%% *} != "$script_sha256sum" ]]; then
+    if [[ ${script_sha256sums[*]} != *${checksum%% *}* ]]; then
       ask 'The script has an unexpected checksum. Execute it anyway?' || exit 1
     fi
     perl "$script_name" "${script_options[@]}" "$output" || exit $?
