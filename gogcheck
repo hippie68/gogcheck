@@ -35,7 +35,7 @@ compactmode=false
 
 # The variables "subjects", "issuers", and "serials" are optional lists
 # of known/trusted strings, which then appear colored in the signature verification.
-# For "subjects" and "serials", first block is GOG, then DigiCert each.
+# For "subjects" and "serials", first block is GOG, then DigiCert, Sectigo each.
 # It is not a complete collection, and future game releases might come with new strings.
 # Use this section to include additional strings seen in your known-legit files.
 
@@ -51,6 +51,10 @@ subjects='
 /C=US/O=DigiCert Inc/OU=www.digicert.com/CN=DigiCert Assured ID Code Signing CA-1
 /C=US/O=DigiCert, Inc./CN=DigiCert Timestamp 2021
 /C=US/O=DigiCert/CN=DigiCert Timestamp 2022 - 2
+
+/C=GB/O=Sectigo Limited/CN=Sectigo Public Time Stamping CA R36
+/C=GB/ST=Manchester/O=Sectigo Limited/CN=Sectigo Public Time Stamping Signer R35
+/C=GB/O=Sectigo Limited/CN=Sectigo Public Time Stamping Root R46
 '
 
 issuers='
@@ -61,6 +65,10 @@ issuers='
 /C=US/O=DigiCert Inc/OU=www.digicert.com/CN=DigiCert Trusted Root G4
 /C=US/O=DigiCert, Inc./CN=DigiCert Trusted G4 Code Signing RSA4096 SHA384 2021 CA1
 /C=US/O=DigiCert, Inc./CN=DigiCert Trusted G4 RSA4096 SHA256 TimeStamping CA
+
+/C=GB/O=Sectigo Limited/CN=Sectigo Public Time Stamping Root R46
+/C=GB/O=Sectigo Limited/CN=Sectigo Public Time Stamping CA R36
+/C=US/ST=New Jersey/L=Jersey City/O=The USERTRUST Network/CN=USERTrust RSA Certification Authority
 '
 
 serials='
@@ -73,6 +81,7 @@ serials='
 096DCF2E35C66F13EF95FCC8BFAC3E11
 0B17A63F5D10CB7D3B78AF8F676C7667
 0B976DD3814E722F750A35F3BC91BFA0
+0BAD5D6BF5CE1EF257DAFB8B75BE92B2
 
 0409181B5FD5BB66755343B56F955008
 03019A023AFF58B16BD6D5EAE617F066
@@ -86,6 +95,10 @@ serials='
 073637B724547CD847ACFD28662A5E5B
 08AD40B260D29C4C9F5ECDA9BD93AED9
 0C4D69724B94FA3C2A4A3D2907803D5A
+
+7A23AEDA5369960F91C83E5CF4C7E33F
+3A526A2C84CE55E61D65FCCC12D8E989
+36C2B0BD7C1B3AE7A3B3DD36CBC97568
 '
 
 set_colors() {
