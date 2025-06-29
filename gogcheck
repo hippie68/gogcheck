@@ -318,7 +318,7 @@ sigcheck() {
     error "$1" "no digital signature found"
   elif [[ $returncode != 0 ]]; then
     error "$1" "digital signature error"
-  elif [[ $osslsigncode_output != *'/O=GOG '* ]]; then
+  elif [[ $osslsigncode_output != *',O=GOG '* && $osslsigncode_output != *'/O=GOG '* ]]; then
     echo -e "${color_error}Warning: digital signature not from GOG?${color_reset}"
     error "$1" "digital signature not from GOG?"
   fi
