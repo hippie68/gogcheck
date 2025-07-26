@@ -239,9 +239,10 @@ fi
 # Set osslsigncode options
 osslsigncode_version=$("$osslsigncode_binary" -v 2> /dev/null \
   | grep -Po 'osslsigncode \K[^,]*(?=,)')
-osslsigncode_version=${osslsigncode_version//./}
-if [[ ${#osslsigncode_version} -eq 2 ]]; then
-  osslsigncode_version+=0
+if [[ ${#osslsigncode_version} -eq 3 ]]; then
+  osslsigncode_version=${osslsigncode_version//./0}
+else
+  osslsigncode_version=${osslsigncode_version//./}
 fi
 if [[ $certfile && $osslsigncode_version -ge 210 ]]; then
   osslsigncode_options="-CAfile $certfile -untrusted $certfile"
@@ -251,6 +252,27 @@ fi
 
 # Enable colors
 [[ $enable_colors == true ]] && set_colors
+
+# Converts user strings to osslsigncode 2.10+ output, if necessary
+convert_to_210 () {
+  IFS=$'\n'
+  for line in $1; do
+    if [[ ${line:0:1} == '/' ]]; then
+      IFS=/
+      local tokens=(${line:1})
+      line=
+      for ((i = ${#tokens[@]} - 1; i >= 0; i--)); do
+        line+=${tokens[i]}
+        [[ $i -ne 0 ]] && line+=,
+      done
+    fi
+    echo "$line"
+  done
+}
+if [[ $osslsigncode_version -ge 210 ]]; then
+  subjects=$(convert_to_210 "$subjects")
+  issuers=$(convert_to_210 "$issuers")
+fi
 
 # Escapes all regex metacharacters in user strings for internal regex use, and
 # creates "|"-delimited strings
