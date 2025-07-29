@@ -55,6 +55,7 @@ subjects='
 /C=GB/O=Sectigo Limited/CN=Sectigo Public Time Stamping CA R36
 /C=GB/ST=Manchester/O=Sectigo Limited/CN=Sectigo Public Time Stamping Signer R35
 /C=GB/O=Sectigo Limited/CN=Sectigo Public Time Stamping Root R46
+/C=GB/ST=West Yorkshire/O=Sectigo Limited/CN=Sectigo Public Time Stamping Signer R36
 '
 
 issuers='
@@ -103,6 +104,7 @@ serials='
 3A526A2C84CE55E61D65FCCC12D8E989
 36C2B0BD7C1B3AE7A3B3DD36CBC97568
 01FD6D30FCA3CA51A81BBC640E35032D
+A4293B6E1EDDD7A7340887AD7A4EB724
 '
 
 set_colors() {
@@ -262,6 +264,7 @@ convert_to_210 () {
       local tokens=(${line:1})
       line=
       for ((i = ${#tokens[@]} - 1; i >= 0; i--)); do
+        tokens[i]=${tokens[i]//,/'\\',}
         line+=${tokens[i]}
         [[ $i -ne 0 ]] && line+=,
       done
@@ -341,7 +344,7 @@ sigcheck() {
   elif [[ $returncode != 0 ]]; then
     error "$1" "digital signature error"
   elif [[ $osslsigncode_version -lt 210 && $osslsigncode_output != *'/O=GOG '* ]] \
-    || [[ $osslsigncode_version -ge 210 && $osslsigncode_output != *',O=GOG'* ]]; then
+    || [[ $osslsigncode_version -ge 210 && $osslsigncode_output != *',O=GOG '* ]]; then
     echo -e "${color_error}Warning: digital signature not from GOG?${color_reset}"
     error "$1" "digital signature not from GOG?"
   fi
