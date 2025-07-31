@@ -246,7 +246,7 @@ if [[ ${#osslsigncode_version} -eq 3 ]]; then
 else
   osslsigncode_version=${osslsigncode_version//./}
 fi
-if [[ $certfile && $osslsigncode_version -ge 210 ]]; then
+if [[ $certfile ]]; then
   osslsigncode_options="-CAfile $certfile -untrusted $certfile"
   # Note: future versions will have changed "-untrusted" to "-TSA-CAfile", but
   # still keep the old name for compatibility.
